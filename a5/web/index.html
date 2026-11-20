@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A5 · EC2 va DynamoDB</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23e46c0a%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.4 4.3 4.3 0 0 0 7 18z%22/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Kirish -->
+<div id="login" class="center" hidden>
+  <div class="card login">
+    <div class="logo"><i data-i="cloud"></i></div>
+    <h1>A5 laboratoriya</h1>
+    <p class="muted">Virtual mashina namunasini ishga tushirish va boshqarish.<br>Amazon DynamoDB da jadvallar yaratish.</p>
+    <form id="lform">
+      <label>Ism familiya<input id="lname" maxlength="60" autocomplete="name" required></label>
+      <label>Guruh (ixtiyoriy)<input id="lgroup" maxlength="20"></label>
+      <button class="btn primary"><i data-i="open"></i> Boshlash</button>
+      <div id="lerr" class="err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Asosiy oyna -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand"><i data-i="cloud"></i> A5 <span>EC2 · DynamoDB</span></div>
+    <div class="who"><i data-i="user"></i> <span id="who"></span></div>
+    <div class="score" id="scorebox"><i data-i="star"></i> <b id="score">0</b> / <span id="total">100</span></div>
+  </header>
+  <div class="progress"><div id="bar"></div></div>
+
+  <main class="grid">
+    <aside class="card tasks">
+      <h2>Topshiriqlar</h2>
+      <div id="tasks"></div>
+    </aside>
+
+    <section>
+      <nav class="tabs">
+        <button class="tab on" data-tab="ec2"><i data-i="server"></i> EC2 — virtual mashinalar</button>
+        <button class="tab" data-tab="ddb"><i data-i="db"></i> DynamoDB — jadvallar</button>
+      </nav>
+
+      <!-- EC2 -->
+      <div id="tab-ec2" class="pane">
+        <div class="card">
+          <h3><i data-i="rocket"></i> Namuna ishga tushirish (Launch instance)</h3>
+          <div class="form">
+            <label>Nomi (Name tegi)<input id="iname" maxlength="40" placeholder="web-server"></label>
+            <label>Tizim obrazi (AMI)<select id="iami"></select></label>
+            <label>Namuna turi<select id="itype"></select></label>
+            <button class="btn primary" id="launch"><i data-i="play"></i> Ishga tushirish</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3><i data-i="server"></i> Namunalar (Instances)</h3>
+          <div class="flow" id="flow"></div>
+          <div id="instances"></div>
+        </div>
+      </div>
+
+      <!-- DynamoDB -->
+      <div id="tab-ddb" class="pane" hidden>
+        <div class="card">
+          <h3><i data-i="plus"></i> Jadval yaratish (Create table)</h3>
+          <div class="form">
+            <label>Jadval nomi<input id="tname" maxlength="40" placeholder="Talabalar"></label>
+            <label>Partition key<input id="tpk" maxlength="40" placeholder="talaba_id"></label>
+            <label class="narrow">Turi<select id="tpkt"><option value="S">String</option><option value="N">Number</option></select></label>
+            <label>Sort key (ixtiyoriy)<input id="tsk" maxlength="40" placeholder="bo'sh qoldirish mumkin"></label>
+            <label class="narrow">Turi<select id="tskt"><option value="S">String</option><option value="N">Number</option></select></label>
+            <button class="btn primary" id="create"><i data-i="plus"></i> Jadval yaratish</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3><i data-i="db"></i> Jadvallar (Tables)</h3>
+          <div id="tables"></div>
+        </div>
+        <div class="card" id="tview" hidden>
+          <h3><i data-i="db"></i> <span id="tvtitle"></span></h3>
+          <div id="tvkeys"></div>
+          <div class="sub"><h4><i data-i="plus"></i> Element qo'shish (PutItem)</h4><div id="tvput" class="form"></div></div>
+          <div class="sub"><h4><i data-i="search"></i> Kalit bo'yicha olish (GetItem)</h4><div id="tvget" class="form"></div><div id="tvres"></div></div>
+          <div class="sub"><h4><i data-i="list"></i> Elementlar (Scan) · <span id="tvcount" class="muted"></span></h4><div id="items"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><i data-i="terminal"></i> AWS CLI ekvivalenti</h3>
+        <div id="log" class="log"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast"></div>
+<script src="/static/common.js"></script>
+<script src="/static/student.js"></script>
+</body>
+</html>

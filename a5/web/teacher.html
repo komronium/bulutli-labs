@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A5 · O'qituvchi paneli</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23e46c0a%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.4 4.3 4.3 0 0 0 7 18z%22/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><i data-i="cloud"></i> A5 <span>O'qituvchi paneli</span></div>
+  <div class="who"><i data-i="globe"></i> Talabalar manzili: <b class="mono" id="url"></b></div>
+</header>
+
+<main style="max-width:1400px;margin:0 auto;padding:16px">
+  <div class="cards" style="margin-bottom:16px">
+    <div class="card res" style="margin:0"><div class="head"><div class="avatar"><i data-i="user"></i></div><div class="grow"><div class="muted small">Talabalar</div><div class="name" id="count">0</div></div></div></div>
+    <div class="card res" style="margin:0"><div class="head"><div class="avatar"><i data-i="star"></i></div><div class="grow"><div class="muted small">O'rtacha ball</div><div class="name" id="avg">0</div></div></div></div>
+    <div class="card res s-running" style="margin:0"><div class="head"><div class="avatar"><i data-i="trophy"></i></div><div class="grow"><div class="muted small">Hammasini bajargan</div><div class="name" id="full">0</div></div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="form" style="align-items:center;margin-bottom:12px">
+      <h3 style="flex:1 1 auto;margin:0"><i data-i="list"></i> Natijalar (har 3 soniyada yangilanadi)</h3>
+      <a class="btn" id="csv"><i data-i="download"></i> CSV yuklab olish</a>
+      <button class="btn danger" id="reset"><i data-i="trash"></i> Hammasini tozalash</button>
+    </div>
+    <div class="scroll"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+  </div>
+</main>
+
+<script src="/static/common.js"></script>
+<script>
+applyIcons();
+const KEY = new URLSearchParams(location.search).get("key") || "";
+$("url").textContent = location.origin;
+$("csv").href = "/teacher.csv?key=" + encodeURIComponent(KEY);
+const ago = (s) => s < 60 ? s + " s oldin" : s < 3600 ? Math.floor(s / 60) + " daq oldin" : Math.floor(s / 3600) + " soat oldin";
+
+async function load() {
+  let j;
+  try { j = await (await fetch("/api/teacher?key=" + encodeURIComponent(KEY), {cache: "no-store"})).json(); } catch (e) { return; }
+  const st = j.students;
+  $("count").textContent = st.length;
+  $("full").textContent = st.filter(s => s.done.length === j.tasks.length).length;
+  $("avg").textContent = st.length ? Math.round(st.reduce((a, s) => a + s.score, 0) / st.length) : 0;
+  $("head").replaceChildren(h("tr", null,
+    ["#", "Ism familiya", "Guruh", "Ball"].map(x => h("th", null, x)),
+    j.tasks.map(t => h("th", {title: t.title}, t.id.toUpperCase())),
+    ["Running VM", "Jadval", "Faollik"].map(x => h("th", null, x))));
+  $("rows").replaceChildren(...(st.length ? st.map((s, n) => h("tr", null,
+    h("td", null, n + 1), h("td", null, h("b", null, s.name)), h("td", null, s.group || "—"), h("td", null, h("b", null, s.score)),
+    j.tasks.map(t => h("td", null, s.done.includes(t.id) ? h("span", {class: "yes"}, "✓") : h("span", {class: "no"}, "●"))),
+    h("td", null, s.running), h("td", null, s.tables), h("td", {class: "muted small"}, ago(s.ago))))
+    : [h("tr", null, h("td", {colspan: "20"}, h("div", {class: "empty"}, icon("user"), "Hali hech kim kirmagan. Talabalarga yuqoridagi manzilni bering.")))]));
+}
+$("reset").onclick = async () => {
+  if (!confirm("Hamma talaba va natijalar o'chiriladi. Avval CSV ni saqlab oldingizmi?")) return;
+  await fetch("/api/teacher/reset?key=" + encodeURIComponent(KEY), {method: "POST"});
+  load();
+};
+load(); setInterval(load, 3000);
+</script>
+</body>
+</html>

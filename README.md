@@ -188,3 +188,9 @@ python simulate.py --reset                                    # tozalash
 - `/health` — oddiy tekshiruv (`{"ok": true, ...}`).
 - Bu dars uchun mo'ljallangan oddiy dastur: HTTPS va autentifikatsiya tunnel zimmasida.
 # bulutli-labs
+
+
+## A5 — EC2 virtual mashina va DynamoDB
+
+«Virtual mashina namunasini ishga tushirish va boshqarish. Amazon DynamoDB da jadvallar yaratish»
+mavzusi uchun simulyator: [a5/README.md](a5/README.md). Ishga tushirish: `python3 a5/app.py` (pip kerak emas).
