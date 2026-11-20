@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23696cff%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.4 4.3 4.3 0 0 0 7 18z%22/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="stu">
 
 <!-- Kirish -->
 <div id="login" class="center" hidden>
@@ -32,8 +32,12 @@
     <span class="pill" id="state"><i data-i="pencil"></i> O'zingiz bajaring</span>
     <div class="stats">
       <div class="stat" id="scorebox"><small>Ball</small><b id="score">0</b></div>
+      <div class="stat"><small>Bajarildi</small><b id="doneS">0 / 10</b></div>
+      <div class="stat"><small>Sinfda</small><b id="placeS">—</b></div>
+      <div class="stat"><small>Jamoa</small><b id="teamS">—</b></div>
       <div class="stat"><small>Talaba</small><b id="who"></b></div>
     </div>
+    <div class="hbar"><i id="hbar"></i></div>
   </header>
 
   <main class="layout">
@@ -43,7 +47,7 @@
         <h2>Vazifa</h2>
         <div class="right"><span id="doneN">0 / 10 bajarildi</span><div class="bar"><i id="bar"></i></div></div>
       </div>
-      <div class="cbody" id="task"></div>
+      <div class="cbody"><div id="task"></div><div id="teams" class="teams"></div></div>
     </section>
 
     <!-- O'ngda: konsol -->

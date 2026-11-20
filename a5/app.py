@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 from collections import Counter
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -28,7 +29,10 @@ STATIC = {  # web/ papkasidagi ruxsat berilgan fayllar
     "style.css": "text/css; charset=utf-8",
     "common.js": "text/javascript; charset=utf-8",
     "student.js": "text/javascript; charset=utf-8",
+    "ekran.html": "text/html; charset=utf-8",
 }
+TEACHER_USER = os.environ.get("A5_TEACHER_USER", "ustoz")
+TEACHER_PASS = os.environ.get("A5_TEACHER_PASSWORD", "admin123")
 STATE_FILE = os.environ.get("A5_STATE", os.path.join(HERE, "state.json"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
@@ -49,6 +53,15 @@ TYPES = {
 }
 MAX_INSTANCES, MAX_TABLES, MAX_ITEMS, MAX_STUDENTS = 5, 10, 100, 500
 POINTS = 10
+
+# Jamoalar: talaba kirganda eng kichik jamoaga tushadi. Jamoa balli = a'zolar ballining o'rtachasi.
+TEAMS = [
+    {"id": "bulut", "name": "Bulut", "color": "#696cff", "icon": "cloud"},
+    {"id": "chaqmoq", "name": "Chaqmoq", "color": "#f59e0b", "icon": "bolt"},
+    {"id": "raketa", "name": "Raketa", "color": "#ef4444", "icon": "rocket"},
+    {"id": "yulduz", "name": "Yulduz", "color": "#10b981", "icon": "star"},
+]
+TEAM = {t["id"]: t for t in TEAMS}
 
 # Vazifa kartasi (A3/A4 dagidek): maqsad · Qayerda · Qadamlar · Natija · Maslahat.  **qalin** — sariq belgi.
 SECTIONS = {"ec2": "EC2 — virtual mashina", "ddb": "DynamoDB — jadvallar", "fin": "Yakun"}
@@ -137,7 +150,11 @@ def load():
     except Exception as e:  # buzilgan fayl — noldan boshlaymiz
         print("state.json o'qilmadi:", e)
     DB.setdefault("students", {})
-    DB["key"] = os.environ.get("A5_KEY") or DB.get("key") or f"{random.randint(0, 999999):06d}"
+    DB.setdefault("tsess", [])
+    DB.pop("key", None)
+    for st in DB["students"].values():  # eski talabalarga ham jamoa
+        if st.get("team") not in TEAM:
+            st["team"] = pick_team()
     DIRTY.set()
 
 
@@ -207,6 +224,89 @@ CHECKS = {
 }
 
 
+# ---------------------------------------------------------------- "nega o'tmayapti?" — jonli tekshiruv ro'yxati
+TYPE_S = {"S": "String", "N": "Number"}
+
+
+def _item(ok, label, want=None, got=None):
+    return {"ok": bool(ok), "label": label, "want": want, "got": got}
+
+
+def _guess_instance(s):
+    """Talaba qaysi mashinani nazarda tutgan: web-server, bo'lmasa oxirgi yaratilgani."""
+    alive = [i for i in s["instances"] if i["state"] != "terminated"]
+    return web(s) or (alive[-1] if alive else None)
+
+
+def _guess_table(s, name, skip=()):
+    t = s["tables"].get(name)
+    if t:
+        return t
+    for t in s["tables"].values():
+        if t["name"].lower() == name.lower():
+            return t
+    rest = [t for t in s["tables"].values() if t["name"] not in skip]
+    return rest[-1] if rest else None
+
+
+def _table_items(t, name, pk, sk):
+    if not t:
+        return [_item(False, f"«{name}» jadvali yaratilgan", name, "jadval yo'q")]
+    out = [_item(t["name"] == name, "Jadval nomi", name, t["name"]),
+           _item(t["pk"] == pk, "Partition key", pk, t["pk"]),
+           _item(t["pkt"] == "S", "Partition key turi", "String", TYPE_S[t["pkt"]])]
+    if sk:
+        out.append(_item(t["sk"] == sk and t["skt"] == "S", "Sort key", f"{sk} (String)",
+                         f"{t['sk']} ({TYPE_S[t['skt']]})" if t["sk"] else "bo'sh"))
+    else:
+        out.append(_item(not t["sk"], "Sort key bo'sh", "bo'sh", t["sk"]))
+    out.append(_item(t["status"] == "ACTIVE", "Holati ACTIVE", "ACTIVE", t["status"]))
+    return out
+
+
+def checklist(s, tid):
+    """Joriy vazifaning shartlari: har biri ✓/✗, xato bo'lsa — talabada nima bor va nima kerak."""
+    w = web(s)
+    if tid == "e1":
+        c = _guess_instance(s)
+        if not c:
+            return [_item(False, "Mashina yaratilgan", "web-server", "hali yo'q")]
+        return [_item(c["name"] == "web-server", "Nomi", "web-server", c["name"]),
+                _item(c["ami"] == UBUNTU, "Tizim (AMI)", AMIS[UBUNTU], AMIS[c["ami"]]),
+                _item(c["type"] == "t2.micro", "Turi", "t2.micro", c["type"]),
+                _item(c["state"] == "running", "Holati running", "running", c["state"])]
+    if tid in ("e2", "e3", "e4", "e5", "f1") and not w:
+        return [_item(False, "web-server mashinasi bor", "web-server", "topilmadi — EC2 bo'limiga qarang")]
+    if tid == "e2":
+        return [_item(w["state"] == "stopped", "Holati stopped", "stopped", w["state"])]
+    if tid == "e3":
+        return [_item(w["state"] == "stopped" or w["type"] == "t2.small", "Avval to'xtatilgan", "stopped", w["state"]),
+                _item(w["type"] == "t2.small", "Turi", "t2.small", w["type"])]
+    if tid == "e4":
+        return [_item(w["type"] == "t2.small", "Turi", "t2.small", w["type"]),
+                _item(w["state"] == "running", "Holati running", "running", w["state"])]
+    if tid == "e5":
+        return [_item(w["state"] == "running" or "reboot_web" in s["flags"], "Holati running", "running", w["state"]),
+                _item("reboot_web" in s["flags"], "«Qayta yuklash» bosildi", "ha", "hali bosilmagan")]
+    if tid == "d1":
+        return _table_items(_guess_table(s, "Talabalar", skip=("Baholar",)), "Talabalar", "talaba_id", None)
+    if tid == "d2":
+        t = table_ok(s, "Talabalar", "talaba_id")
+        n = len(t["items"]) if t else 0
+        return [_item(t, "«Talabalar» jadvali tayyor", "ACTIVE", None if t else "yo'q"),
+                _item(n >= 3, "Elementlar soni", "3 ta", f"{n} ta")]
+    if tid == "d3":
+        return [_item("get_talabalar" in s["flags"], "GetItem bilan element topildi", "T001", "hali topilmagan")]
+    if tid == "d4":
+        t = _guess_table(s, "Baholar", skip=("Talabalar",))
+        out = _table_items(t, "Baholar", "talaba_id", "fan")
+        best = max(Counter(i[t["pk"]][1] for i in t["items"] if t["pk"] in i).values(), default=0) if t else 0
+        return out + [_item(best >= 2, "Bitta talaba_id da 2 ta fan", "2 ta qator", f"{best} ta")]
+    if tid == "f1":
+        return [_item("term_web" in s["flags"], "web-server o'chirildi (terminate)", "terminated", w["state"])]
+    return []
+
+
 def flag(s, name, tid):
     """Bayroq faqat topshiriq navbati kelganda qo'yiladi (oldindan bajarib qo'yib bo'lmaydi)."""
     if ready(s, tid) and name not in s["flags"]:
@@ -237,13 +337,23 @@ def tick(s):
             DIRTY.set()
 
 
+def _standing(s):
+    order, teams = ranking()
+    return {"team": s["team"], "place": next(n for n, x in enumerate(order) if x is s) + 1, "class_n": len(order),
+            "teams": [{k: t[k] for k in ("id", "name", "color", "icon", "avg", "members", "place")} for t in teams]}
+
+
 def view(s):
     tick(s)
     tasks = [dict(t, state="done" if t["id"] in s["done"] else "current" if ready(s, t["id"]) else "locked")
              for t in TASKS]
+    for t in tasks:
+        if t["state"] == "current":
+            t["check"] = checklist(s, t["id"])
     return {
         "name": s["name"], "group": s["group"],
         "score": POINTS * len(s["done"]), "total": TOTAL, "tasks": tasks, "sections": SECTIONS,
+        **_standing(s),
         "instances": [{k: i[k] for k in ("id", "name", "ami", "type", "state", "public_ip", "private_ip")}
                       | {"ami_name": AMIS[i["ami"]]} for i in s["instances"]],
         "tables": [{k: t[k] for k in ("name", "status", "pk", "pkt", "sk", "skt", "items")}
@@ -466,24 +576,50 @@ def do_op(s, a):
     return msg, extra
 
 
+# ---------------------------------------------------------------- jamoalar va reyting
+def pick_team():
+    n = Counter(st.get("team") for st in DB["students"].values())
+    return min(TEAMS, key=lambda t: (n[t["id"]], TEAMS.index(t)))["id"]
+
+
+def finish_time(s):
+    return max(s["done"].values()) if s["done"] else float("inf")
+
+
+def ranking():
+    """Sinf reytingi: ball ko'p bo'lgan oldinda; ball teng bo'lsa — oxirgi vazifani ertaroq bajargan oldinda.
+    Jamoa reytingi: a'zolar ballining o'rtachasi (jamoalar soni teng bo'lmasa ham adolatli)."""
+    for st in DB["students"].values():
+        tick(st)
+    order = sorted(DB["students"].values(), key=lambda st: (-len(st["done"]), finish_time(st), st["name"].lower()))
+    teams = []
+    for t in TEAMS:
+        mem = [st for st in order if st["team"] == t["id"]]
+        avg = round(sum(POINTS * len(st["done"]) for st in mem) / len(mem), 1) if mem else 0
+        teams.append(dict(t, members=len(mem), avg=avg, full=sum(len(st["done"]) == len(TASKS) for st in mem)))
+    teams.sort(key=lambda t: (not t["members"], -t["avg"], -t["full"], TEAMS.index(TEAM[t["id"]])))
+    for n, t in enumerate(teams):
+        t["place"] = n + 1
+    return order, teams
+
+
 # ---------------------------------------------------------------- o'qituvchi
-def teacher_rows():
-    rows = []
-    for s in DB["students"].values():
-        tick(s)
-        rows.append({"name": s["name"], "group": s["group"], "score": POINTS * len(s["done"]),
-                     "done": list(s["done"]), "ago": int(time.time() - s["last"]),
-                     "running": sum(i["state"] == "running" for i in s["instances"]),
-                     "tables": len(s["tables"])})
-    return sorted(rows, key=lambda r: (-r["score"], r["name"].lower()))
+def teacher_rows(order=None):
+    order = order or ranking()[0]
+    now = time.time()
+    return [{"place": n + 1, "name": s["name"], "group": s["group"], "team": s["team"],
+             "score": POINTS * len(s["done"]), "done": list(s["done"]), "ago": int(now - s["last"]),
+             "running": sum(i["state"] == "running" for i in s["instances"]), "tables": len(s["tables"])}
+            for n, s in enumerate(order)]
 
 
 def teacher_csv():
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["Ism familiya", "Guruh", "Ball"] + [t["id"] + " " + t["title"] for t in TASKS])
+    w.writerow(["O'rin", "Ism familiya", "Guruh", "Jamoa", "Ball"] + [t["id"] + " " + t["title"] for t in TASKS])
     for r in teacher_rows():
-        w.writerow([r["name"], r["group"], r["score"]] + [1 if t["id"] in r["done"] else 0 for t in TASKS])
+        w.writerow([r["place"], r["name"], r["group"], TEAM[r["team"]]["name"], r["score"]]
+                   + [1 if t["id"] in r["done"] else 0 for t in TASKS])
     return "﻿" + buf.getvalue()  # BOM — Excel o'zbek harflarini to'g'ri ko'rsatsin
 
 
@@ -508,8 +644,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def teacher_ok(self, q):
-        return q.get("key", [""])[0] == DB["key"]
+    def teacher_ok(self, q=None):
+        c = SimpleCookie(self.headers.get("Cookie", ""))
+        return "a5t" in c and c["a5t"].value in DB["tsess"]
 
     def page(self, name):
         with open(os.path.join(WEB, name), "rb") as f:
@@ -532,16 +669,19 @@ class Handler(BaseHTTPRequestHandler):
                 if not s:
                     return self.send(401, {"ok": False, "msg": "Qaytadan kiring"})
                 return self.send(200, {"ok": True, "state": view(s)})
-        if u.path in ("/teacher", "/api/teacher", "/teacher.csv"):
-            if not self.teacher_ok(q):
-                return self.send(403, "Kalit noto'g'ri: /teacher?key=KALIT", "text/plain; charset=utf-8")
-            if u.path == "/teacher":
-                return self.page("teacher.html")
+        if u.path == "/teacher":
+            return self.page("teacher.html")  # kirmagan bo'lsa, sahifaning o'zi login oynasini ko'rsatadi
+        if u.path == "/ekran":
+            return self.page("ekran.html")
+        if u.path in ("/api/teacher", "/teacher.csv"):
+            if not self.teacher_ok():
+                return self.send(401, {"ok": False, "msg": "Avval o'qituvchi sifatida kiring"})
             with LOCK:
                 if u.path == "/teacher.csv":
                     return self.send(200, teacher_csv(), "text/csv; charset=utf-8",
                                      {"Content-Disposition": 'attachment; filename="a5-natijalar.csv"'})
-                return self.send(200, {"ok": True, "students": teacher_rows(),
+                order, teams = ranking()
+                return self.send(200, {"ok": True, "students": teacher_rows(order), "teams": teams,
                                        "tasks": [{"id": t["id"], "title": t["title"]} for t in TASKS]})
         self.send(404, "Topilmadi", "text/plain; charset=utf-8")
 
@@ -566,7 +706,7 @@ class Handler(BaseHTTPRequestHandler):
                 if len(DB["students"]) >= MAX_STUDENTS:
                     return self.send(200, {"ok": False, "msg": "Talabalar soni chegarasiga yetildi"})
                 token = secrets.token_urlsafe(16)
-                DB["students"][token] = {"name": name, "group": group, "joined": time.time(),
+                DB["students"][token] = {"name": name, "group": group, "team": pick_team(), "joined": time.time(),
                                          "last": time.time(), "instances": [], "tables": {},
                                          "done": {}, "flags": [], "log": []}
                 DIRTY.set()
@@ -580,9 +720,26 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200, {"ok": True, "msg": msg, "state": view(s), **extra})
                 except Fail as e:
                     return self.send(200, {"ok": False, "msg": str(e), "state": view(s)})
+            if u.path == "/api/teacher/login":
+                ok = secrets.compare_digest(str(a.get("username", "")).strip(), TEACHER_USER) & \
+                    secrets.compare_digest(str(a.get("password", "")), TEACHER_PASS)
+                if not ok:
+                    time.sleep(0.7)  # parolni tez-tez taxmin qilishni sekinlatadi
+                    return self.send(200, {"ok": False, "msg": "Login yoki parol noto'g'ri"})
+                tok = secrets.token_urlsafe(24)
+                DB["tsess"] = (DB["tsess"] + [tok])[-20:]
+                DIRTY.set()
+                return self.send(200, {"ok": True}, headers={
+                    "Set-Cookie": f"a5t={tok}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"})
+            if u.path == "/api/teacher/logout":
+                c = SimpleCookie(self.headers.get("Cookie", ""))
+                if "a5t" in c and c["a5t"].value in DB["tsess"]:
+                    DB["tsess"].remove(c["a5t"].value)
+                    DIRTY.set()
+                return self.send(200, {"ok": True}, headers={"Set-Cookie": "a5t=; Path=/; Max-Age=0"})
             if u.path == "/api/teacher/reset":
-                if not self.teacher_ok(q):
-                    return self.send(403, {"ok": False})
+                if not self.teacher_ok():
+                    return self.send(401, {"ok": False})
                 DB["students"] = {}
                 DIRTY.set()
                 return self.send(200, {"ok": True})
@@ -604,13 +761,14 @@ def main():
     load()
     if "--reset" in sys.argv:
         DB["students"] = {}
-        print("Hamma talaba natijalari tozalandi (kalit saqlandi).")
+        print("Hamma talaba natijalari tozalandi.")
     threading.Thread(target=saver, daemon=True).start()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     ip = lan_ip()
     print("A5 laboratoriya serveri ishga tushdi\n"
           f"  Talabalar:   http://{ip}:{PORT}\n"
-          f"  O'qituvchi:  http://{ip}:{PORT}/teacher?key={DB['key']}\n"
+          f"  O'qituvchi:  http://{ip}:{PORT}/teacher   (login: {TEACHER_USER}, parol: A5_TEACHER_PASSWORD, standart admin123)\n"
+          f"  Proyektor:   http://{ip}:{PORT}/ekran\n"
           "  (VPS da IP o'rniga serverning tashqi IP manzilini yozing.)  To'xtatish: Ctrl+C", flush=True)
     try:
         server.serve_forever()

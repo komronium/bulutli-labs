@@ -17,19 +17,18 @@ cd a5
 python3 app.py
 ```
 
-Konsolda ikkita havola chiqadi:
+Konsolda havolalar chiqadi:
 
 ```
 Talabalar:   http://<IP>:8000
-O'qituvchi:  http://<IP>:8000/teacher?key=123456
+O'qituvchi:  http://<IP>:8000/teacher   (login: ustoz, parol: admin123)
+Proyektor:   http://<IP>:8000/ekran
 ```
-
-Kalitni talabalarga bermang. Kalit `state.json` da saqlanadi (qayta ishga tushirganda o'zgarmaydi).
 
 | Sozlama | Misol |
 |---|---|
 | Boshqa port | `PORT=8005 python3 app.py` |
-| O'z kalitingiz | `A5_KEY=424242 python3 app.py` |
+| O'qituvchi paroli | `A5_TEACHER_PASSWORD=yangi-parol python3 app.py` (login: `A5_TEACHER_USER`, standart `ustoz`) |
 | Natijalarni tozalash | `python3 app.py --reset` |
 
 ## VPS da
@@ -67,10 +66,29 @@ Ekranda har doim bitta joriy vazifa turadi (A3/A4 dagidek): **Qayerda**, **Qadam
 | D4 | `Baholar`: partition key `talaba_id` + sort key `fan`, bitta talabaga 2 ta fan | Murakkab (composite) kalit |
 | F1 | `web-server` ni terminate qilish | Keraksiz resurslarni tozalash |
 
-## O'qituvchi paneli
+## Jamoalar va reyting
 
-`/teacher?key=KALIT` — jonli natijalar jadvali (har 3 soniyada yangilanadi), **CSV yuklab olish**
-va **Hammasini tozalash** (yangi guruh uchun; avval CSV ni saqlab oling).
+Talaba kirganda 4 jamoadan eng kichigiga tushadi: **Bulut**, **Chaqmoq**, **Raketa** va **Yulduz**.
+Har bir jamoaning o'z rangi va ikonkasi bor.
+
+- Har bir vazifa — 10 ball, jami 100.
+- Jamoa balli — a'zolar ballining **o'rtachasi** (jamoalar soni teng bo'lmasa ham adolatli).
+- Ball teng bo'lsa, oxirgi vazifani ertaroq bajargan talaba yuqorida turadi.
+
+Talaba o'z ekranida ballini, sinfdagi o'rnini va jamoalar reytingini ko'radi.
+
+## Talaba qayerda adashganini ko'radi
+
+Vazifa kartasida jonli **Tekshiruv** ro'yxati bor: har bir shart ✓ yoki ✗ bo'ladi.
+Xato bo'lsa, yonma-yon yoziladi: `sizda: Web Server → kerak: web-server`.
+Bajarilmagan amal xabari kartada qizil qutida qoladi.
+
+## O'qituvchi paneli va proyektor
+
+- `/teacher` — login `ustoz`, parol `admin123`. Jamoa kartalari, "Ball qanday hisoblanadi" izohi,
+  talabalar reytingi (har 3 soniyada yangilanadi), **CSV**, **Tozalash** (yangi guruh uchun; avval CSV ni saqlang).
+- `/ekran` — katta ekran uchun: jamoalar poygasi, eng yaxshi 5 talaba va qoidalar.
+  Avval shu brauzerda `/teacher` ga kiring.
 
 ## Fayllar
 

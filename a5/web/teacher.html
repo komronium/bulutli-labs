@@ -4,61 +4,107 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>A5 · O'qituvchi paneli</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23e46c0a%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.4 4.3 4.3 0 0 0 7 18z%22/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23696cff%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.4 4.3 4.3 0 0 0 7 18z%22/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header class="top card"><div class="logo"><i data-i="cloud"></i></div>
-  <div class="mtitle"><small>A5 laboratoriya</small><b>O'qituvchi paneli</b></div>
-  <div class="who"><i data-i="globe"></i> Talabalar manzili: <b class="mono" id="url"></b></div>
-</header>
 
-<main class="tpage">
-  <div class="cards" style="margin-bottom:16px">
-    <div class="res" style="margin:0"><div class="head"><div class="avatar"><i data-i="user"></i></div><div class="grow"><div class="muted small">Talabalar</div><div class="name" id="count">0</div></div></div></div>
-    <div class="res" style="margin:0"><div class="head"><div class="avatar"><i data-i="star"></i></div><div class="grow"><div class="muted small">O'rtacha ball</div><div class="name" id="avg">0</div></div></div></div>
-    <div class="res s-running" style="margin:0"><div class="head"><div class="avatar"><i data-i="trophy"></i></div><div class="grow"><div class="muted small">Hammasini bajargan</div><div class="name" id="full">0</div></div></div></div>
+<!-- Kirish -->
+<div id="login" class="center" hidden>
+  <div class="card login">
+    <div class="logo"><i data-i="user"></i></div>
+    <h1>O'qituvchi paneli</h1>
+    <p class="muted">A5 laboratoriya: natijalar, jamoalar va reyting.</p>
+    <form id="lform">
+      <label>Login<input id="luser" autocomplete="username" value="ustoz" required></label>
+      <label>Parol<input id="lpass" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary"><i data-i="open"></i> Kirish</button>
+      <div id="lerr" class="err"></div>
+    </form>
   </div>
+</div>
 
-  <div class="card">
-    <div class="form" style="align-items:center;margin-bottom:12px">
-      <h3 style="flex:1 1 auto;margin:0"><i data-i="list"></i> Natijalar (har 3 soniyada yangilanadi)</h3>
-      <a class="btn" id="csv"><i data-i="download"></i> CSV yuklab olish</a>
-      <button class="btn danger" id="reset"><i data-i="trash"></i> Hammasini tozalash</button>
+<div id="app" hidden>
+  <header class="top card">
+    <div class="logo"><i data-i="cloud"></i></div>
+    <div class="mtitle"><small>A5 laboratoriya</small><b>O'qituvchi paneli</b></div>
+    <button class="where" id="copy" title="Nusxa olish"><i data-i="globe"></i> <span id="url"></span> <i data-i="copy"></i></button>
+    <div class="acts" style="margin-left:auto">
+      <a class="btn primary" href="/ekran" target="_blank"><i data-i="screen"></i> Proyektor</a>
+      <a class="btn" href="/teacher.csv"><i data-i="download"></i> CSV</a>
+      <button class="btn danger" id="reset"><i data-i="trash"></i> Tozalash</button>
+      <button class="btn" id="logout"><i data-i="logout"></i> Chiqish</button>
     </div>
-    <div class="scroll"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div>
-  </div>
-</main>
+  </header>
 
+  <main class="tpage">
+    <div class="tgrid" id="teamcards"></div>
+
+    <div class="card rules">
+      <h3><i data-i="info"></i> Ball va reyting qanday hisoblanadi?</h3>
+      <div class="rgrid">
+        <div><span class="rnum">1</span><b>Har bir vazifa — 10 ball</b><p>10 ta vazifa: jami 100 ball. Vazifa server tomonidan o'zi tekshiriladi.</p></div>
+        <div><span class="rnum">2</span><b>Jamoa balli — o'rtacha</b><p>A'zolar ballining o'rtachasi. Jamoada odam kam yoki ko'p bo'lsa ham adolatli.</p></div>
+        <div><span class="rnum">3</span><b>Ball teng bo'lsa</b><p>Oxirgi vazifani ertaroq bajargan talaba yuqorida turadi.</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="form" style="align-items:center;margin-bottom:10px">
+        <h3 style="flex:1 1 auto;margin:0"><i data-i="list"></i> Talabalar reytingi</h3>
+        <span class="muted small" id="summary"></span>
+      </div>
+      <div class="scroll"><table class="rank"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
 <script src="/static/common.js"></script>
 <script>
 applyIcons();
-const KEY = new URLSearchParams(location.search).get("key") || "";
-$("url").textContent = location.origin;
-$("csv").href = "/teacher.csv?key=" + encodeURIComponent(KEY);
 const ago = (s) => s < 60 ? s + " s oldin" : s < 3600 ? Math.floor(s / 60) + " daq oldin" : Math.floor(s / 3600) + " soat oldin";
+$("url").textContent = location.host;
+$("copy").onclick = () => { try { navigator.clipboard.writeText(location.origin); $("copy").lastChild.replaceWith(icon("check")); } catch (e) {} };
 
 async function load() {
-  let j;
-  try { j = await (await fetch("/api/teacher?key=" + encodeURIComponent(KEY), {cache: "no-store"})).json(); } catch (e) { return; }
-  const st = j.students;
-  $("count").textContent = st.length;
-  $("full").textContent = st.filter(s => s.done.length === j.tasks.length).length;
-  $("avg").textContent = st.length ? Math.round(st.reduce((a, s) => a + s.score, 0) / st.length) : 0;
-  $("head").replaceChildren(h("tr", null,
-    ["#", "Ism familiya", "Guruh", "Ball"].map(x => h("th", null, x)),
-    j.tasks.map(t => h("th", {title: t.title}, t.id.toUpperCase())),
-    ["Running VM", "Jadval", "Faollik"].map(x => h("th", null, x))));
-  $("rows").replaceChildren(...(st.length ? st.map((s, n) => h("tr", null,
-    h("td", null, n + 1), h("td", null, h("b", null, s.name)), h("td", null, s.group || "—"), h("td", null, h("b", null, s.score)),
+  let r, j;
+  try { r = await fetch("/api/teacher", {cache: "no-store"}); j = await r.json(); } catch (e) { return; }
+  if (r.status === 401) { $("app").hidden = true; $("login").hidden = false; return; }
+  $("login").hidden = true; $("app").hidden = false;
+  const T = Object.fromEntries(j.teams.map(t => [t.id, t]));
+  const st = j.students, n = j.tasks.length;
+
+  $("teamcards").replaceChildren(...j.teams.map(t => h("div", {class: "card tcard", style: "--tc:" + t.color},
+    h("div", {class: "tch"}, teamIcon(t, 44), h("div", null, h("b", null, t.name), h("small", null, t.members + " ta a'zo")), placeBadge(t.place)),
+    h("div", {class: "tavg"}, h("b", null, t.avg), h("span", null, "/ 100 o'rtacha")),
+    h("div", {class: "tbar"}, h("i", {style: "width:" + t.avg + "%"})),
+    h("small", {class: "muted"}, "Hammasini bajargan: " + t.full + " ta"))));
+
+  const avg = st.length ? Math.round(st.reduce((a, s) => a + s.score, 0) / st.length) : 0;
+  $("summary").textContent = st.length + " talaba · o'rtacha " + avg + " ball · " + st.filter(s => s.done.length === n).length + " ta hammasini bajardi";
+  $("head").replaceChildren(h("tr", null, ["O'rin", "Ism familiya", "Jamoa", "Guruh", "Ball"].map(x => h("th", null, x)),
+    j.tasks.map((t, i) => h("th", {title: t.title}, i + 1)), h("th", null, "Faollik")));
+  $("rows").replaceChildren(...(st.length ? st.map(s => h("tr", null,
+    h("td", null, placeBadge(s.place)), h("td", null, h("b", null, s.name)), h("td", null, teamChip(T[s.team])),
+    h("td", null, s.group || "—"),
+    h("td", null, h("div", {class: "sbar"}, h("b", null, s.score), h("div", {class: "tbar", style: "--tc:" + T[s.team].color}, h("i", {style: "width:" + s.score + "%"})))),
     j.tasks.map(t => h("td", null, s.done.includes(t.id) ? h("span", {class: "yes"}, "✓") : h("span", {class: "no"}, "●"))),
-    h("td", null, s.running), h("td", null, s.tables), h("td", {class: "muted small"}, ago(s.ago))))
+    h("td", {class: "muted small"}, ago(s.ago))))
     : [h("tr", null, h("td", {colspan: "20"}, h("div", {class: "empty"}, icon("user"), "Hali hech kim kirmagan. Talabalarga yuqoridagi manzilni bering.")))]));
 }
+$("lform").onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch("/api/teacher/login", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username: $("luser").value, password: $("lpass").value})});
+  const j = await r.json();
+  if (!j.ok) { $("lerr").textContent = j.msg; return; }
+  $("lerr").textContent = ""; load();
+};
+$("logout").onclick = async () => { await fetch("/api/teacher/logout", {method: "POST"}); location.reload(); };
 $("reset").onclick = async () => {
   if (!confirm("Hamma talaba va natijalar o'chiriladi. Avval CSV ni saqlab oldingizmi?")) return;
-  await fetch("/api/teacher/reset?key=" + encodeURIComponent(KEY), {method: "POST"});
-  load();
+  await fetch("/api/teacher/reset", {method: "POST"}); load();
 };
 load(); setInterval(load, 3000);
 </script>

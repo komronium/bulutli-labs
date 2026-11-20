@@ -29,6 +29,8 @@ async function act(op, args, btn) {
   const j = await api("/api/do", Object.assign({token: TOKEN, op}, args || {}));
   if (btn) btn.disabled = false;
   toast(j.msg || "Xato", j.ok);
+  lastErr = j.ok ? null : {msg: j.msg || "Xato", op};
+  if (j.ok && op === "ddb.get" && !j.item) lastErr = {msg: "Bunday kalitli element jadvalda yo'q. Pastdagi «Elementlar» ro'yxatiga qarang: kalit aynan shunday yozilganmi (masalan T001 — bosh harf T)?", op};
   if (j.state) render(j.state);
   return j;
 }
@@ -43,7 +45,8 @@ async function refresh() {
 }
 
 // ---------------------------------------------------------------- umumiy chizish
-let hintFor = null, hintOn = false;
+let hintFor = null, hintOn = false, lastErr = null;
+const SECI = {ec2: "server", ddb: "db", fin: "trophy"};
 function showTab(name) {
   document.querySelectorAll(".nav").forEach(x => x.classList.toggle("on", x.dataset.tab === name));
   for (const t of ["ec2", "ddb", "cli"]) $("tab-" + t).hidden = t !== name;
@@ -51,6 +54,10 @@ function showTab(name) {
 }
 function render(st) {
   $("who").textContent = st.name;
+  $("placeS").textContent = st.place + "-o'rin / " + st.class_n;
+  const myTeam = st.teams.find(t => t.id === st.team);
+  if (myTeam && changed("teamS", [myTeam.place, myTeam.avg])) $("teamS").replaceChildren(teamChip(myTeam, myTeam.place + "-o'rin"));
+  if (changed("teams", [st.teams, st.team])) renderTeams(st.teams, st.team);
   $("score").textContent = st.score;
   const n = st.tasks.filter(t => t.state === "done").length;
   $("doneN").textContent = n + " / " + st.tasks.length + " bajarildi";
@@ -63,7 +70,9 @@ function render(st) {
   if (fresh.length) toast("Bajarildi: " + st.tasks.find(t => t.id === fresh[0]).title + " (+10 ball)", true);
   doneSeen = st.tasks.filter(t => t.state === "done").map(t => t.id);
 
-  if (changed("tasks", [st.tasks.map(t => t.state), hintOn])) renderTask(st, fresh);
+  $("hbar").style.width = (100 * n / st.tasks.length) + "%";
+  $("doneS").textContent = n + " / " + st.tasks.length;
+  if (changed("tasks", [st.tasks.map(t => [t.state, t.check]), hintOn, lastErr])) renderTask(st, fresh);
   if (changed("inst", st.instances)) renderInstances(st.instances);
   if (changed("tables", [openName, st.tables.map(t => [t.name, t.status, t.pk, t.sk, t.items.length])])) renderTables(st.tables);
   renderOpen(st);
@@ -106,17 +115,51 @@ function renderTask(st, fresh) {
     if (lastDone) box.append(h("div", {class: "success"}, icon("check"), h("div", null, h("b", null, "Bajarildi: " + lastDone.title), lastDone.success)));
     const n = st.tasks.indexOf(cur) + 1;
     const tabName = cur.where;
-    box.append(h("span", {class: "chip"}, n + "-VAZIFA"), h("h3", {class: "goal"}, cur.title),
+    box.append(...[h("span", {class: "chip"}, n + "-VAZIFA"), h("h3", {class: "goal"}, cur.title),
       h("div", {class: "rows"},
         h("div", {class: "row"}, h("span", null, "Qayerda"),
           h("button", {class: "where", onclick: () => { showTab(tabName); if (window.innerWidth <= 1000) $("tab-" + tabName).scrollIntoView({behavior: "smooth", block: "start"}); }}, tabName === "ec2" ? "EC2 (Virtual mashinalar)" : "DynamoDB (Jadvallar)", icon("open"))),
         h("div", {class: "row"}, h("span", null, "Qadamlar"), h("ol", {class: "steps"}, cur.steps.map(x => h("li", null, rich(x))))),
         h("div", {class: "row"}, h("span", null, "Natija"), h("div", null, cur.expect))),
+      lastErr ? h("div", {class: "errbox"}, icon("x"), h("div", null, h("b", null, "Bajarilmadi"), lastErr.msg,
+        h("small", null, "Xabarni o'qing, tuzating va tugmani qayta bosing."))) : null,
+      checkBox(cur.check || []),
       hintOn ? h("div", {class: "hint"}, h("b", null, "Maslahat: "), cur.hint)
-             : h("button", {class: "hintb", onclick: () => { hintOn = true; renderTask(st, []); }}, icon("bulb"), "Maslahat olish", h("small", null, "bepul")));
+             : h("button", {class: "hintb", onclick: () => { hintOn = true; renderTask(st, []); }}, icon("bulb"), "Maslahat olish", h("small", null, "bepul"))].filter(Boolean));
   }
-  box.append(h("div", {class: "all"}, h("h4", null, "Hamma vazifalar"), st.tasks.map((t, i) => h("div", {class: "ti " + t.state + (fresh.includes(t.id) ? " pop" : "")},
-    h("i", null, t.state === "done" ? icon("check") : t.state === "locked" ? icon("lock") : i + 1), t.title))));
+  const all = h("div", {class: "all"});
+  for (const sec of Object.keys(st.sections)) {
+    const ts = st.tasks.filter(t => t.sec === sec), d = ts.filter(t => t.state === "done").length;
+    all.append(h("div", {class: "secrow"}, icon(SECI[sec]), h("b", null, st.sections[sec]), h("span", null, d + " / " + ts.length),
+      h("div", {class: "bar" + (d === ts.length ? " full" : "")}, h("i", {style: "width:" + (100 * d / ts.length) + "%"}))));
+    ts.forEach(t => all.append(h("div", {class: "ti " + t.state + (fresh.includes(t.id) ? " pop" : "")},
+      h("i", null, t.state === "done" ? icon("check") : t.state === "locked" ? icon("lock") : st.tasks.indexOf(t) + 1), t.title)));
+  }
+  box.append(all);
+}
+
+// Jamoalar reytingi (chap kartaning pastida)
+function renderTeams(teams, mine) {
+  const box = $("teams");
+  const max = Math.max(10, ...teams.map(t => t.avg));
+  box.replaceChildren(h("h4", null, icon("trophy"), "Jamoalar reytingi"),
+    ...teams.map(t => h("div", {class: "trow" + (t.id === mine ? " mine" : ""), style: "--tc:" + t.color},
+      placeBadge(t.place), teamIcon(t), h("b", null, t.name + (t.id === mine ? " (siz)" : "")),
+      h("div", {class: "tbar"}, h("i", {style: "width:" + (100 * t.avg / max) + "%"})), h("span", null, t.avg))),
+    h("p", {class: "small muted"}, "Jamoa balli — a'zolar ballining o'rtachasi."));
+}
+
+// Jonli tekshiruv: har bir shart ✓/✗; xato bo'lsa — "sizda" va "kerak" yonma-yon.
+function checkBox(items) {
+  if (!items.length) return null;
+  const ok = items.filter(x => x.ok).length;
+  return h("div", {class: "check"},
+    h("div", {class: "chh"}, icon("search"), h("b", null, "Tekshiruv"), h("span", null, ok + " / " + items.length + " shart bajarildi"),
+      h("div", {class: "bar" + (ok === items.length ? " full" : "")}, h("i", {style: "width:" + (100 * ok / items.length) + "%"}))),
+    items.map(x => h("div", {class: "ck " + (x.ok ? "ok" : "no")}, h("i", null, icon(x.ok ? "check" : "x")),
+      h("div", null, h("span", null, x.label + (x.ok && x.want ? ": " + x.want : "")),
+        !x.ok && x.got != null ? h("div", {class: "diff"}, h("s", null, "sizda: " + x.got), icon("open"), h("b", null, "kerak: " + (x.want ?? ""))) :
+        !x.ok && x.want ? h("div", {class: "diff"}, h("b", null, "kerak: " + x.want)) : null))));
 }
 
 // ---------------------------------------------------------------- EC2
