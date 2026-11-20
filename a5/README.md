@@ -52,7 +52,7 @@ Shu serverda boshqa laboratoriya ham 8000-portda ishlayotgan bo'lsa: `PORT=8005 
 
 ## Topshiriqlar (har biri 10 ball, jami 100)
 
-Topshiriqlar ketma-ket ochiladi va server o'zi tekshiradi.
+Ekranda har doim bitta joriy vazifa turadi (A3/A4 dagidek): **Qayerda**, **Qadamlar**, **Natija** va **Maslahat olish**. Bosilishi kerak bo'lgan tugma yonib-o'chib turadi. Vazifalar ketma-ket ochiladi, server o'zi tekshiradi.
 
 | # | Topshiriq | Nima o'rganiladi |
 |---|---|---|

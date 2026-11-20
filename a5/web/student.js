@@ -5,7 +5,6 @@ let doneSeen = null, lastScore = null, seenIds = null, seenItems = new Set(), se
 try { TOKEN = localStorage.getItem("a5_token"); } catch (e) {}
 
 const BUSY = ["pending", "stopping", "rebooting", "shutting-down", "CREATING", "DELETING"];
-const SEC = {ec2: ["server", "1-qism · EC2 virtual mashina"], ddb: ["db", "2-qism · DynamoDB jadvallar"], fin: ["check", "Yakun"]};
 const rich = (t) => t.split("**").map((p, i) => i % 2 ? h("b", null, p) : p);
 const badge = (st) => h("span", {class: "badge " + st + (BUSY.includes(st) ? " busy" : "")}, st);
 const empty = (ic, text) => h("div", {class: "empty"}, icon(ic), text);
@@ -44,10 +43,18 @@ async function refresh() {
 }
 
 // ---------------------------------------------------------------- umumiy chizish
+let hintFor = null, hintOn = false;
+function showTab(name) {
+  document.querySelectorAll(".nav").forEach(x => x.classList.toggle("on", x.dataset.tab === name));
+  for (const t of ["ec2", "ddb", "cli"]) $("tab-" + t).hidden = t !== name;
+  guide();
+}
 function render(st) {
-  $("who").textContent = st.name + (st.group ? " · " + st.group : "");
-  $("score").textContent = st.score; $("total").textContent = st.total;
-  $("bar").style.width = (100 * st.score / st.total) + "%";
+  $("who").textContent = st.name;
+  $("score").textContent = st.score;
+  const n = st.tasks.filter(t => t.state === "done").length;
+  $("doneN").textContent = n + " / " + st.tasks.length + " bajarildi";
+  $("bar").style.width = (100 * n / st.tasks.length) + "%";
   if (lastScore !== null && st.score > lastScore) bump($("scorebox"));
   lastScore = st.score;
 
@@ -56,25 +63,60 @@ function render(st) {
   if (fresh.length) toast("Bajarildi: " + st.tasks.find(t => t.id === fresh[0]).title + " (+10 ball)", true);
   doneSeen = st.tasks.filter(t => t.state === "done").map(t => t.id);
 
-  if (changed("tasks", st.tasks)) renderTasks(st, fresh);
+  if (changed("tasks", [st.tasks.map(t => t.state), hintOn])) renderTask(st, fresh);
   if (changed("inst", st.instances)) renderInstances(st.instances);
   if (changed("tables", [openName, st.tables.map(t => [t.name, t.status, t.pk, t.sk, t.items.length])])) renderTables(st.tables);
   renderOpen(st);
   if (changed("log", st.log)) renderLog(st.log);
+  CUR = st.tasks.find(t => t.state === "current") || null;
+  guide();
+}
+
+// Joriy vazifada bosilishi kerak bo'lgan joy yonib-o'chib turadi (noldan boshlaganlar uchun).
+let CUR = null;
+const GUIDE = {
+  e1: ["#launch"], e2: ['[data-g="stop"]'], e3: ['[data-g="modify"]'], e4: ['[data-g="start"]'], e5: ['[data-g="reboot"]'],
+  d1: ["#create"], d2: ['[data-g="open-Talabalar"]', "#tvput .btn.primary"], d3: ["#tvget .btn"],
+  d4: ["#create", '[data-g="open-Baholar"]', "#tvput .btn.primary"], f1: ['[data-g="terminate"]'],
+};
+function guide() {
+  document.querySelectorAll(".guide").forEach(e => e.classList.remove("guide"));
+  if (!CUR) return;
+  const nav = document.querySelector('.nav[data-tab="' + CUR.where + '"]');
+  if (nav && !nav.classList.contains("on")) return nav.classList.add("guide");
+  const table = CUR.id === "d4" ? "Baholar" : "Talabalar";
+  for (const sel of GUIDE[CUR.id] || []) {
+    if (sel.startsWith("#tv") && openName !== table) continue;  // faqat kerakli jadval ochiq bo'lsa
+    document.querySelectorAll(sel).forEach(e => e.classList.add("guide"));
+  }
 }
 function bump(el) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
 
-function renderTasks(st, fresh) {
-  const box = $("tasks"); box.replaceChildren();
-  if (st.score === st.total) box.append(h("div", {class: "finish"}, icon("trophy"), "Tabriklaymiz! Hamma topshiriqlar bajarildi."));
-  let sec = null;
-  st.tasks.forEach((t, n) => {
-    if (t.sec !== sec) { sec = t.sec; box.append(h("div", {class: "sec"}, icon(SEC[sec][0]), SEC[sec][1])); }
-    const num = t.state === "done" ? icon("check") : t.state === "locked" ? icon("lock") : n + 1;
-    box.append(h("div", {class: "task " + t.state + (fresh.includes(t.id) ? " pop" : "")},
-      h("div", {class: "num"}, num),
-      h("div", null, h("div", {class: "tt"}, t.title), h("div", {class: "tx"}, rich(t.text)))));
-  });
+function renderTask(st, fresh) {
+  const box = $("task"), cur = st.tasks.find(t => t.state === "current");
+  const lastDone = st.tasks.filter(t => t.state === "done").pop();
+  if (cur && cur.id !== hintFor) { hintFor = cur.id; hintOn = false; }
+  box.replaceChildren();
+  if (!cur) {
+    $("state").replaceChildren(icon("check"), "Hammasi bajarildi"); $("state").className = "pill done";
+    box.append(h("div", {class: "finish"}, h("div", {class: "big"}, icon("trophy")), h("h2", null, "Tabriklaymiz!"),
+      h("p", {class: "muted"}, "A5 laboratoriya ishi to'liq bajarildi: " + st.score + " / " + st.total + " ball.")));
+  } else {
+    $("state").replaceChildren(icon("pencil"), "O'zingiz bajaring"); $("state").className = "pill";
+    if (lastDone) box.append(h("div", {class: "success"}, icon("check"), h("div", null, h("b", null, "Bajarildi: " + lastDone.title), lastDone.success)));
+    const n = st.tasks.indexOf(cur) + 1;
+    const tabName = cur.where;
+    box.append(h("span", {class: "chip"}, n + "-VAZIFA"), h("h3", {class: "goal"}, cur.title),
+      h("div", {class: "rows"},
+        h("div", {class: "row"}, h("span", null, "Qayerda"),
+          h("button", {class: "where", onclick: () => { showTab(tabName); if (window.innerWidth <= 1000) $("tab-" + tabName).scrollIntoView({behavior: "smooth", block: "start"}); }}, tabName === "ec2" ? "EC2 (Virtual mashinalar)" : "DynamoDB (Jadvallar)", icon("open"))),
+        h("div", {class: "row"}, h("span", null, "Qadamlar"), h("ol", {class: "steps"}, cur.steps.map(x => h("li", null, rich(x))))),
+        h("div", {class: "row"}, h("span", null, "Natija"), h("div", null, cur.expect))),
+      hintOn ? h("div", {class: "hint"}, h("b", null, "Maslahat: "), cur.hint)
+             : h("button", {class: "hintb", onclick: () => { hintOn = true; renderTask(st, []); }}, icon("bulb"), "Maslahat olish", h("small", null, "bepul")));
+  }
+  box.append(h("div", {class: "all"}, h("h4", null, "Hamma vazifalar"), st.tasks.map((t, i) => h("div", {class: "ti " + t.state + (fresh.includes(t.id) ? " pop" : "")},
+    h("i", null, t.state === "done" ? icon("check") : t.state === "locked" ? icon("lock") : i + 1), t.title))));
 }
 
 // ---------------------------------------------------------------- EC2
@@ -82,10 +124,10 @@ const FLOW = [["pending", "running", "stopping", "stopped"], ["running", "reboot
 function renderFlow(list) {
   const alive = list.filter(i => i.state !== "terminated");
   const cur = (alive.filter(i => i.name === "web-server").pop() || alive.pop() || list[list.length - 1] || {}).state;
-  const box = $("flow"); box.replaceChildren(h("b", null, "Hayot sikli:"));
+  const box = $("flow"); let lit = false; box.replaceChildren(h("b", null, "Hayot sikli:"));
   FLOW.forEach((row, r) => {
     if (r) box.append(h("span", null, " · "));
-    row.forEach((s, n) => { if (n) box.append("→"); box.append(h("span", {class: "st" + (s === cur ? " on" : "")}, s)); });
+    row.forEach((s, n) => { if (n) box.append("→"); const on = s === cur && !lit; if (on) lit = true; box.append(h("span", {class: "st" + (on ? " on" : "")}, s)); });
   });
 }
 
@@ -93,7 +135,7 @@ function renderInstances(list) {
   renderFlow(list);
   const box = $("instances");
   if (!list.length) { seenIds = new Set(); return box.replaceChildren(empty("server", "Hozircha namuna yo'q. Yuqoridagi shakl orqali birinchi virtual mashinani ishga tushiring.")); }
-  const btn = (i, ic, label, op, cls, ask) => h("button", {class: "btn sm " + (cls || ""), onclick: (e) => {
+  const btn = (i, ic, label, op, cls, ask) => h("button", {class: "btn sm " + (cls || ""), "data-g": i.name === "web-server" ? op.slice(4) : "", onclick: (e) => {
     if (ask && !confirm(ask)) return; act(op, {id: i.id}, e.currentTarget); }}, icon(ic), label);
 
   const cards = list.slice().reverse().map(i => {
@@ -105,7 +147,7 @@ function renderInstances(list) {
       const sel = h("select", {class: "sm", "aria-label": "Yangi tur"}, Object.keys(META.types).map(k => h("option", {value: k}, k)));
       sel.value = i.type;
       acts.append(btn(i, "play", "Ishga tushirish", "ec2.start", "primary"), sel,
-        h("button", {class: "btn sm", onclick: (e) => act("ec2.modify", {id: i.id, type: sel.value}, e.currentTarget)}, icon("cpu"), "Turini o'zgartirish"), kill);
+        h("button", {class: "btn sm", "data-g": i.name === "web-server" ? "modify" : "", onclick: (e) => act("ec2.modify", {id: i.id, type: sel.value}, e.currentTarget)}, icon("cpu"), "Turini o'zgartirish"), kill);
     } else acts.append(h("span", {class: "muted small"}, i.state === "terminated" ? "Namuna o'chirilgan" : "Kuting, holat o'zgarmoqda…"));
 
     const ipChanged = i.public_ip && lastIp[i.id] !== undefined && lastIp[i.id] !== i.public_ip;
@@ -144,7 +186,7 @@ function renderTables(list) {
       badge(t.status)),
     keyChips(t),
     h("div", {class: "acts"},
-      t.status === "ACTIVE" ? h("button", {class: "btn sm primary", onclick: (e) => openTable(t.name, e.currentTarget)}, icon("open"), "Ochish") : null,
+      t.status === "ACTIVE" ? h("button", {class: "btn sm primary", "data-g": "open-" + t.name, onclick: (e) => openTable(t.name, e.currentTarget)}, icon("open"), "Ochish") : null,
       t.status !== "DELETING" ? h("button", {class: "btn sm danger", onclick: (e) => {
         if (confirm("«" + t.name + "» jadvali va undagi hamma elementlar o'chiriladi. Davom etasizmi?")) act("ddb.delete_table", {table: t.name}, e.currentTarget);
       }}, icon("trash"), "O'chirish") : h("span", {class: "muted small"}, "O'chirilmoqda…"))));
@@ -236,10 +278,7 @@ async function init() {
     const j = await act("ddb.create", {name: $("tname").value, pk: $("tpk").value, pkt: $("tpkt").value, sk: $("tsk").value, skt: $("tskt").value}, e.currentTarget);
     if (j.ok) for (const id of ["tname", "tpk", "tsk"]) $(id).value = "";
   };
-  document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
-    document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
-    $("tab-ec2").hidden = b.dataset.tab !== "ec2"; $("tab-ddb").hidden = b.dataset.tab !== "ddb";
-  });
+  document.querySelectorAll(".nav").forEach(b => b.onclick = () => showTab(b.dataset.tab));
   $("lform").onsubmit = async (e) => {
     e.preventDefault();
     const j = await api("/api/join", {name: $("lname").value, group: $("lgroup").value});

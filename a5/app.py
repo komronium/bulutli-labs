@@ -50,40 +50,66 @@ TYPES = {
 MAX_INSTANCES, MAX_TABLES, MAX_ITEMS, MAX_STUDENTS = 5, 10, 100, 500
 POINTS = 10
 
+# Vazifa kartasi (A3/A4 dagidek): maqsad · Qayerda · Qadamlar · Natija · Maslahat.  **qalin** — sariq belgi.
+SECTIONS = {"ec2": "EC2 — virtual mashina", "ddb": "DynamoDB — jadvallar", "fin": "Yakun"}
 TASKS = [
-    ("e1", "ec2", "Virtual mashina yarating",
-     "«Ishga tushirish» shaklida: nomi **web-server**, AMI **Ubuntu Server 24.04 LTS**, "
-     "turi **t2.micro**. Holat **running** bo'lishini kuting."),
-    ("e2", "ec2", "Namunani to'xtating",
-     "**web-server** qatorida «To'xtatish» ni bosing. Holat **stopped** bo'ladi: disk saqlanadi, "
-     "CPU uchun pul olinmaydi, public IP bo'shatiladi."),
-    ("e3", "ec2", "Namuna turini o'zgartiring",
-     "To'xtatilgan **web-server** turini **t2.small** (1 vCPU · 2 GB) ga o'zgartiring. "
-     "Ishlab turgan namunada bu mumkin emas."),
-    ("e4", "ec2", "Qayta ishga tushiring",
-     "**web-server** ni «Ishga tushirish» bilan yoqing. **Public IP** yangi bo'lganiga e'tibor bering."),
-    ("e5", "ec2", "Qayta yuklang (reboot)",
-     "Ishlab turgan **web-server** ni «Qayta yuklash» bilan reboot qiling. Bunda IP o'zgarmaydi."),
-    ("d1", "ddb", "Jadval yarating",
-     "DynamoDB bo'limida: jadval nomi **Talabalar**, partition key **talaba_id** (String), "
-     "sort key bo'sh. Holat **ACTIVE** bo'lishini kuting."),
-    ("d2", "ddb", "Elementlar qo'shing",
-     "**Talabalar** ni oching va kamida **3 ta** element qo'shing. Masalan: talaba_id = **T001**, "
-     "boshqa atributlar: ism = Ali Valiyev, guruh = 101."),
-    ("d3", "ddb", "Elementni kalit bo'yicha o'qing",
-     "«Olish (GetItem)» bilan **Talabalar** dan mavjud elementni **talaba_id** bo'yicha toping."),
-    ("d4", "ddb", "Murakkab kalitli jadval",
-     "**Baholar** jadvali: partition key **talaba_id** (String), sort key **fan** (String). "
-     "Bitta talaba uchun **2 ta** fan qo'shing (masalan T001 + Matematika, T001 + Fizika)."),
-    ("f1", "fin", "Resurslarni tozalang",
-     "Ish tugadi: **web-server** ni «O'chirish» (terminate) qiling. Bulutda keraksiz qolgan "
-     "resurs uchun ham pul olinadi!"),
+    dict(id="e1", sec="ec2", where="ec2", title="Birinchi virtual mashinani ishga tushiring.",
+         steps=["Nomi: **web-server**", "Tizim (AMI): **Ubuntu Server 24.04 LTS**", "Turi: **t2.micro**",
+                "«Ishga tushirish» tugmasini bosing"],
+         expect="Ro'yxatda web-server paydo bo'ladi. 3 soniyadan keyin holati «running» (ishlayapti) bo'ladi.",
+         hint="Nomni aynan shunday yozing: kichik harflar, o'rtada chiziqcha — web-server.",
+         success="Zo'r! Bulut sizga bir necha soniyada alohida kompyuter ajratdi."),
+    dict(id="e2", sec="ec2", where="ec2", title="Virtual mashinani to'xtating.",
+         steps=["web-server kartasida **«To'xtatish»** tugmasini bosing"],
+         expect="Holat «stopped» (to'xtatilgan) bo'ladi, Public IP yo'qoladi.",
+         hint="Tugma faqat mashina «running» bo'lganda chiqadi.",
+         success="To'xtatildi. Endi protsessor uchun pul olinmaydi, disk esa saqlanib turadi."),
+    dict(id="e3", sec="ec2", where="ec2", title="Mashina turini kattaroq qiling: t2.small.",
+         steps=["web-server kartasidagi ro'yxatdan **t2.small** ni tanlang",
+                "**«Turini o'zgartirish»** tugmasini bosing"],
+         expect="Kartada «t2.small · 1 vCPU · 2 GB» yoziladi.",
+         hint="Turini faqat to'xtatilgan mashinada o'zgartirib bo'ladi.",
+         success="Bajarildi! Yangi kompyuter sotib olmasdan, mashina kattalashdi."),
+    dict(id="e4", sec="ec2", where="ec2", title="Mashinani qayta yoqing.",
+         steps=["web-server kartasida **«Ishga tushirish»** tugmasini bosing", "Public IP ga qarang"],
+         expect="Holat «running», Public IP esa yangi raqam bo'ladi.",
+         hint="Avvalgi IP to'xtatilganda bo'shatilgan edi, shuning uchun yangisi beriladi.",
+         success="Mashina ishlayapti. To'xtatib yoqilganda IP o'zgarishini ko'rdingiz."),
+    dict(id="e5", sec="ec2", where="ec2", title="Mashinani qayta yuklang (reboot).",
+         steps=["web-server kartasida **«Qayta yuklash»** tugmasini bosing"],
+         expect="Holat bir zum «rebooting», keyin yana «running». IP o'zgarmaydi.",
+         hint="Reboot — kompyuterni o'chirib-yoqish kabi, lekin manzili saqlanadi.",
+         success="1-qism tugadi! Endi ma'lumotlar bazasiga o'tamiz."),
+    dict(id="d1", sec="ddb", where="ddb", title="«Talabalar» jadvalini yarating.",
+         steps=["Jadval nomi: **Talabalar**", "Partition key: **talaba_id** (String)", "Sort key — bo'sh qolsin",
+                "«Jadval yaratish» tugmasini bosing"],
+         expect="Jadval kartasi paydo bo'ladi: avval «CREATING», keyin «ACTIVE».",
+         hint="Katta-kichik harf muhim: Talabalar — bosh harf bilan, talaba_id — kichik harflar bilan.",
+         success="Jadval tayyor. Partition key — har bir qatorning noyob raqami."),
+    dict(id="d2", sec="ddb", where="ddb", title="Jadvalga 3 ta talaba qo'shing.",
+         steps=["«Talabalar» kartasida **«Ochish»** ni bosing", "talaba_id: **T001**",
+                "Boshqa atributlar: **ism = Ali Valiyev**", "«Element qo'shish» — keyin **T002** va **T003** ham"],
+         expect="Pastdagi jadvalda 3 ta qator ko'rinadi.",
+         hint="Har bir talabaning talaba_id si har xil bo'lsin. Bir xil bo'lsa, eskisi almashtiriladi.",
+         success="3 ta element qo'shildi. Har birining kaliti boshqa-boshqa."),
+    dict(id="d3", sec="ddb", where="ddb", title="T001 talabani kalit bo'yicha toping.",
+         steps=["«Kalit bo'yicha olish» bo'limida talaba_id: **T001**", "**«Olish»** tugmasini bosing"],
+         expect="Pastda T001 ning ma'lumotlari chiqadi.",
+         hint="Bu GetItem: kalitni bilsangiz, element darhol topiladi.",
+         success="Topildi! Kalit bo'yicha qidirish eng tez usul."),
+    dict(id="d4", sec="ddb", where="ddb", title="«Baholar» jadvali: ikki qismli kalit.",
+         steps=["Jadval nomi: **Baholar**", "Partition key: **talaba_id**", "Sort key: **fan**",
+                "Ochib, 2 ta element qo'shing: **T001 + Matematika**, **T001 + Fizika**"],
+         expect="Bitta talaba_id (T001) da 2 ta qator: har xil fan bilan.",
+         hint="Sort key bo'lsa, bir talabaning bir nechta qatori bo'lishi mumkin — fani har xil bo'lsa.",
+         success="Ikki qismli kalit: talaba_id + fan. Bir talabaga ko'p baho yoziladi."),
+    dict(id="f1", sec="fin", where="ec2", title="Ishni tugating: web-server ni o'chiring.",
+         steps=["EC2 bo'limida web-server kartasida **«O'chirish»** ni bosing", "Oynada tasdiqlang"],
+         expect="Holat «shutting-down», keyin «terminated».",
+         hint="Bulutda ishlatilmayotgan mashina uchun ham pul olinadi — keraksizini o'chiramiz.",
+         success="Tabriklaymiz! A5 laboratoriya ishi to'liq bajarildi."),
 ]
-TASKS = [dict(id=a, sec=b, title=c, text=d) for a, b, c, d in TASKS]
-PREREQ = {
-    t["id"]: [p["id"] for p in TASKS[:n] if t["sec"] == "fin" or p["sec"] == t["sec"]]
-    for n, t in enumerate(TASKS)
-}
+PREREQ = {t["id"]: [p["id"] for p in TASKS[:n]] for n, t in enumerate(TASKS)}  # qat'iy ketma-ket
 TOTAL = POINTS * len(TASKS)
 
 NAME_RE = re.compile(r"^[\w .-]{1,40}$")
@@ -217,7 +243,7 @@ def view(s):
              for t in TASKS]
     return {
         "name": s["name"], "group": s["group"],
-        "score": POINTS * len(s["done"]), "total": TOTAL, "tasks": tasks,
+        "score": POINTS * len(s["done"]), "total": TOTAL, "tasks": tasks, "sections": SECTIONS,
         "instances": [{k: i[k] for k in ("id", "name", "ami", "type", "state", "public_ip", "private_ip")}
                       | {"ami_name": AMIS[i["ami"]]} for i in s["instances"]],
         "tables": [{k: t[k] for k in ("name", "status", "pk", "pkt", "sk", "skt", "items")}
