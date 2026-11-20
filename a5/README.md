@@ -49,29 +49,40 @@ nohup python3 a5/app.py > a5.log 2>&1 &   # to'xtatish: pkill -f a5/app.py
 
 Shu serverda boshqa laboratoriya ham 8000-portda ishlayotgan bo'lsa: `PORT=8005 python3 a5/app.py`.
 
-## Topshiriqlar (har biri 10 ball, jami 100)
+## Dars oqimi (A3/A4 dagidek, o'qituvchi boshqaradi)
 
-Ekranda har doim bitta joriy vazifa turadi (A3/A4 dagidek): **Qayerda**, **Qadamlar**, **Natija** va **Maslahat olish**. Bosilishi kerak bo'lgan tugma yonib-o'chib turadi. Vazifalar ketma-ket ochiladi, server o'zi tekshiradi.
+Har bir missiya: **Namuna → Mustaqil → Yakun**. Darsdan oldin — **Kutish**.
 
-| # | Topshiriq | Nima o'rganiladi |
+| Qadam | Talaba ekranida | Konsol |
 |---|---|---|
-| E1 | `web-server`, Ubuntu 24.04, t2.micro namuna ishga tushirish | AMI, namuna turi, `pending → running` |
-| E2 | Namunani to'xtatish | `stopped`: disk qoladi, public IP bo'shatiladi |
-| E3 | Turini t2.small ga o'zgartirish | Faqat to'xtatilgan namunada mumkin |
-| E4 | Qayta ishga tushirish | Yangi public IP beriladi |
-| E5 | Reboot | IP o'zgarmaydi |
-| D1 | `Talabalar` jadvali, partition key `talaba_id` (String) | Jadval, kalit, `CREATING → ACTIVE` |
-| D2 | 3 ta element qo'shish | PutItem, atributlar, String/Number |
-| D3 | GetItem bilan element o'qish | Kalit bo'yicha o'qish |
-| D4 | `Baholar`: partition key `talaba_id` + sort key `fan`, bitta talabaga 2 ta fan | Murakkab (composite) kalit |
-| F1 | `web-server` ni terminate qilish | Keraksiz resurslarni tozalash |
+| Kutish | "Dars hali boshlanmagan" | yopiq |
+| Namuna | missiya maqsadi va namunalar, "O'qituvchini kuzating" | yopiq |
+| Mustaqil | bitta joriy vazifa: Qayerda · Qadamlar · Natija · Tekshiruv · Maslahat | ochiq |
+| Yakun | natija va "Siz nimani o'rgandingiz" | yopiq |
+
+O'qituvchi panelida **▶ Keyingi qadam** (yoki istalgan qadamni bosib o'tish). Namunani
+**Namuna konsoli**da ko'rsating (`/?demo=1`): u doim ochiq va reytingga kirmaydi. Proyektor
+(`/ekran`) Namuna qadamida namunalarni, boshqa paytda jamoalar poygasini ko'rsatadi.
+
+## Missiyalar (5 ta, 27 vazifa, har biri 10 ball — jami 270)
+
+| Missiya | Vazifalar |
+|---|---|
+| 1. Birinchi virtual mashina | web-server (Ubuntu, t2.micro) · Public IP ni yozish · Instance ID ni yozish · test-server (Amazon Linux, t2.nano) · savol |
+| 2. Mashinani boshqarish | Stop · turini t2.small ga · Start · yangi Public IP ni yozish · Reboot · savol |
+| 3. To'g'ri tur va tozalash | katta-server (2 vCPU / 4 GB ni o'zi topadi) · RAM necha GB · katta-server ni Stop · test-server ni Terminate · savol |
+| 4. DynamoDB: birinchi jadval | Talabalar jadvali · 3 element · GetItem · T002 ni o'zgartirish · T003 ni o'chirish · savol |
+| 5. Ikki qismli kalit va yakun | Baholar (PK + SK) · T001 ga 2 fan · T002 ga fan · savol · hamma mashinalarni Terminate |
+
+Vazifalar ketma-ket ochiladi; keyingi missiya vazifalari o'qituvchi ochguncha qulflangan.
+Taxminiy vaqt: 70–80 daqiqa. Dars mazmuni (vazifalar, namunalar, tekshiruvlar) — `lesson.py`.
 
 ## Jamoalar va reyting
 
 Talaba kirganda 4 jamoadan eng kichigiga tushadi: **Bulut**, **Chaqmoq**, **Raketa** va **Yulduz**.
 Har bir jamoaning o'z rangi va ikonkasi bor.
 
-- Har bir vazifa — 10 ball, jami 100.
+- Har bir vazifa — 10 ball, jami 270.
 - Jamoa balli — a'zolar ballining **o'rtachasi** (jamoalar soni teng bo'lmasa ham adolatli).
 - Ball teng bo'lsa, oxirgi vazifani ertaroq bajargan talaba yuqorida turadi.
 
@@ -94,6 +105,7 @@ Bajarilmagan amal xabari kartada qizil qutida qoladi.
 
 ```
 a5/
-├── app.py          # server: API, EC2/DynamoDB simulyatsiyasi, tekshiruv
-└── web/            # sahifalar: index.html (talaba), teacher.html, style.css, common.js, student.js
+├── app.py          # server: API, EC2/DynamoDB simulyatsiyasi, dars oqimi, reyting
+├── lesson.py       # dars mazmuni: 5 missiya, 27 vazifa, namunalar, tekshiruvlar
+└── web/            # sahifalar: index.html (talaba), teacher.html, ekran.html, style.css, common.js, student.js
 ```

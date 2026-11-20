@@ -309,3 +309,64 @@ body.ekran { font-size: 18px; }
 @media (max-width: 1000px) { .egrid { grid-template-columns: 1fr; padding: 12px 16px; } .ehead { padding: 16px; flex-wrap: wrap; } .ejoin { margin-left: 0; } }
 
 @media (max-width: 700px) { .top .acts { margin-left: 0 !important; } .top .acts .btn { padding: 6px 10px; font-size: 13px; } .tgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; } .tcard { padding: 12px; } .tch .tico { width: 34px !important; height: 34px !important; } .tavg b { font-size: 24px; } .tavg span { display: block; margin: 2px 0 0; font-size: 12px; } .tpage { padding: 12px 16px; } }
+
+/* ---------- dars oqimi: kutish, namuna, javob, savol, yopiq konsol */
+.pill.wait { background: var(--line); color: var(--sub); }
+.pill.watch { background: var(--warnbg); color: var(--warn); }
+.finish .big.wait { background: var(--line); color: var(--sub); animation: breathe 2s ease-in-out infinite; }
+.watch { display: flex; gap: 10px; align-items: flex-start; background: var(--warnbg); color: var(--warn); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+.watch .ic { width: 22px; height: 22px; margin-top: 1px; }
+.watch b { display: block; }
+.nlist { display: grid; gap: 10px; }
+.nitem { display: flex; gap: 10px; align-items: flex-start; background: var(--soft); border-radius: 10px; padding: 12px 14px; animation: in .4s ease-out; }
+.nitem .rnum { flex: none; margin: 0; }
+.nitem code { display: block; font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; color: var(--head); font-weight: 600; }
+.nitem p { margin: 4px 0 0; color: var(--sub); font-size: 14px; }
+.ansbox { display: flex; gap: 10px; align-items: flex-end; margin-top: 14px; background: var(--pri-soft); border-radius: 10px; padding: 12px 14px; }
+.ansbox label { color: var(--pri-ink); font-weight: 600; }
+.ansin { font-size: 17px; font-family: ui-monospace, Consolas, monospace; background: var(--card); }
+.quiz { display: grid; gap: 8px; margin-top: 4px; }
+.opt { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; font: inherit; color: var(--ink); cursor: pointer; transition: border-color .2s, transform .1s; }
+.opt:hover { border-color: var(--pri); }
+.opt:active { transform: scale(.99); }
+.opt b { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--pri-soft); color: var(--pri-ink); flex: none; }
+.opt.wrong { background: var(--badbg); border-color: var(--bad); color: var(--bad); cursor: not-allowed; text-decoration: line-through; animation: shake .4s ease-out; }
+.opt.wrong b { background: var(--bad); color: #fff; }
+.secrow.locked { opacity: .55; }
+.secrow.locked .ic { color: var(--sub); }
+.cons { position: relative; }
+.lockov { position: absolute; inset: 0; z-index: 3; background: rgba(245, 245, 249, .78); backdrop-filter: blur(2px); display: grid; place-items: center; padding: 20px; }
+.lockov > div { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 22px 26px; max-width: 380px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; animation: in .3s ease-out; }
+.lockov .ic { width: 34px; height: 34px; color: var(--pri); }
+.lockov b { color: var(--head); font-size: 17px; }
+.lockov span { color: var(--sub); }
+@media (prefers-color-scheme: dark) { .lockov { background: rgba(31, 33, 48, .78); } }
+
+/* o'qituvchi: dars boshqaruvi */
+.flowc { padding: 16px 18px !important; }
+.flh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.fnow small { display: block; color: var(--sub); font-size: 12px; }
+.fnow b { font-size: 19px; color: var(--head); }
+.flh .acts { margin-left: auto; }
+.btn.big { padding: 11px 20px; font-size: 16px; }
+.fsteps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 14px; }
+.fm { background: var(--soft); border-radius: 10px; padding: 10px 12px; border: 1px solid transparent; }
+.fm.on { border-color: var(--pri); background: var(--pri-soft); }
+.fm > b { display: block; font-size: 13px; color: var(--head); margin-bottom: 6px; }
+.fm > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.fs { border: 1px solid var(--line); background: var(--card); color: var(--sub); border-radius: 99px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.fs.past { background: var(--okbg); color: var(--ok); border-color: transparent; }
+.fs.cur { background: var(--pri); color: #fff; border-color: var(--pri); font-weight: 700; }
+.fready { margin-top: 12px; color: var(--sub); font-size: 14px; }
+.fready span { display: flex; align-items: center; gap: 8px; }
+.fready b { color: var(--head); }
+.mcell { display: inline-block; min-width: 38px; text-align: center; padding: 2px 8px; border-radius: 6px; background: var(--line); color: var(--sub); font-size: 13px; font-weight: 600; }
+.mcell.part { background: var(--warnbg); color: var(--warn); }
+.mcell.full { background: var(--okbg); color: var(--ok); }
+/* proyektor: namuna */
+.enamuna { display: grid; gap: 16px; padding: 16px 32px; max-width: 1200px; margin: 0 auto; }
+.egoal { font-size: 22px; color: var(--head); margin: 0 0 4px; }
+.nitem.big { padding: 20px 24px; gap: 16px; }
+.nitem.big .rnum { width: 40px; height: 40px; font-size: 18px; }
+.nitem.big code { font-size: 22px; }
+.nitem.big p { font-size: 19px; }

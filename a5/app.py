@@ -38,19 +38,10 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 DELAY = float(os.environ.get("A5_DELAY", "3"))  # holatlar orasidagi kutish, soniya
 
-UBUNTU = "ami-0a91c2e5b3d7f4e01"
-AMIS = {
-    UBUNTU: "Ubuntu Server 24.04 LTS",
-    "ami-0b52d8f1c6e3a9702": "Amazon Linux 2023",
-    "ami-0c13e7a9d2f5b6803": "Debian 12",
-    "ami-0d84f3b6e1c7a2904": "Windows Server 2022",
-}
-TYPES = {
-    "t2.nano": "1 vCPU · 0.5 GB",
-    "t2.micro": "1 vCPU · 1 GB",
-    "t2.small": "1 vCPU · 2 GB",
-    "t2.medium": "2 vCPU · 4 GB",
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lesson import AMIS, MISSIONS, TASKS, TYPES, BY_ID, EVENT_TASK  # noqa: E402
+import lesson as L  # noqa: E402
+
 MAX_INSTANCES, MAX_TABLES, MAX_ITEMS, MAX_STUDENTS = 5, 10, 100, 500
 POINTS = 10
 
@@ -63,67 +54,15 @@ TEAMS = [
 ]
 TEAM = {t["id"]: t for t in TEAMS}
 
-# Vazifa kartasi (A3/A4 dagidek): maqsad · Qayerda · Qadamlar · Natija · Maslahat.  **qalin** — sariq belgi.
-SECTIONS = {"ec2": "EC2 — virtual mashina", "ddb": "DynamoDB — jadvallar", "fin": "Yakun"}
-TASKS = [
-    dict(id="e1", sec="ec2", where="ec2", title="Birinchi virtual mashinani ishga tushiring.",
-         steps=["Nomi: **web-server**", "Tizim (AMI): **Ubuntu Server 24.04 LTS**", "Turi: **t2.micro**",
-                "«Ishga tushirish» tugmasini bosing"],
-         expect="Ro'yxatda web-server paydo bo'ladi. 3 soniyadan keyin holati «running» (ishlayapti) bo'ladi.",
-         hint="Nomni aynan shunday yozing: kichik harflar, o'rtada chiziqcha — web-server.",
-         success="Zo'r! Bulut sizga bir necha soniyada alohida kompyuter ajratdi."),
-    dict(id="e2", sec="ec2", where="ec2", title="Virtual mashinani to'xtating.",
-         steps=["web-server kartasida **«To'xtatish»** tugmasini bosing"],
-         expect="Holat «stopped» (to'xtatilgan) bo'ladi, Public IP yo'qoladi.",
-         hint="Tugma faqat mashina «running» bo'lganda chiqadi.",
-         success="To'xtatildi. Endi protsessor uchun pul olinmaydi, disk esa saqlanib turadi."),
-    dict(id="e3", sec="ec2", where="ec2", title="Mashina turini kattaroq qiling: t2.small.",
-         steps=["web-server kartasidagi ro'yxatdan **t2.small** ni tanlang",
-                "**«Turini o'zgartirish»** tugmasini bosing"],
-         expect="Kartada «t2.small · 1 vCPU · 2 GB» yoziladi.",
-         hint="Turini faqat to'xtatilgan mashinada o'zgartirib bo'ladi.",
-         success="Bajarildi! Yangi kompyuter sotib olmasdan, mashina kattalashdi."),
-    dict(id="e4", sec="ec2", where="ec2", title="Mashinani qayta yoqing.",
-         steps=["web-server kartasida **«Ishga tushirish»** tugmasini bosing", "Public IP ga qarang"],
-         expect="Holat «running», Public IP esa yangi raqam bo'ladi.",
-         hint="Avvalgi IP to'xtatilganda bo'shatilgan edi, shuning uchun yangisi beriladi.",
-         success="Mashina ishlayapti. To'xtatib yoqilganda IP o'zgarishini ko'rdingiz."),
-    dict(id="e5", sec="ec2", where="ec2", title="Mashinani qayta yuklang (reboot).",
-         steps=["web-server kartasida **«Qayta yuklash»** tugmasini bosing"],
-         expect="Holat bir zum «rebooting», keyin yana «running». IP o'zgarmaydi.",
-         hint="Reboot — kompyuterni o'chirib-yoqish kabi, lekin manzili saqlanadi.",
-         success="1-qism tugadi! Endi ma'lumotlar bazasiga o'tamiz."),
-    dict(id="d1", sec="ddb", where="ddb", title="«Talabalar» jadvalini yarating.",
-         steps=["Jadval nomi: **Talabalar**", "Partition key: **talaba_id** (String)", "Sort key — bo'sh qolsin",
-                "«Jadval yaratish» tugmasini bosing"],
-         expect="Jadval kartasi paydo bo'ladi: avval «CREATING», keyin «ACTIVE».",
-         hint="Katta-kichik harf muhim: Talabalar — bosh harf bilan, talaba_id — kichik harflar bilan.",
-         success="Jadval tayyor. Partition key — har bir qatorning noyob raqami."),
-    dict(id="d2", sec="ddb", where="ddb", title="Jadvalga 3 ta talaba qo'shing.",
-         steps=["«Talabalar» kartasida **«Ochish»** ni bosing", "talaba_id: **T001**",
-                "Boshqa atributlar: **ism = Ali Valiyev**", "«Element qo'shish» — keyin **T002** va **T003** ham"],
-         expect="Pastdagi jadvalda 3 ta qator ko'rinadi.",
-         hint="Har bir talabaning talaba_id si har xil bo'lsin. Bir xil bo'lsa, eskisi almashtiriladi.",
-         success="3 ta element qo'shildi. Har birining kaliti boshqa-boshqa."),
-    dict(id="d3", sec="ddb", where="ddb", title="T001 talabani kalit bo'yicha toping.",
-         steps=["«Kalit bo'yicha olish» bo'limida talaba_id: **T001**", "**«Olish»** tugmasini bosing"],
-         expect="Pastda T001 ning ma'lumotlari chiqadi.",
-         hint="Bu GetItem: kalitni bilsangiz, element darhol topiladi.",
-         success="Topildi! Kalit bo'yicha qidirish eng tez usul."),
-    dict(id="d4", sec="ddb", where="ddb", title="«Baholar» jadvali: ikki qismli kalit.",
-         steps=["Jadval nomi: **Baholar**", "Partition key: **talaba_id**", "Sort key: **fan**",
-                "Ochib, 2 ta element qo'shing: **T001 + Matematika**, **T001 + Fizika**"],
-         expect="Bitta talaba_id (T001) da 2 ta qator: har xil fan bilan.",
-         hint="Sort key bo'lsa, bir talabaning bir nechta qatori bo'lishi mumkin — fani har xil bo'lsa.",
-         success="Ikki qismli kalit: talaba_id + fan. Bir talabaga ko'p baho yoziladi."),
-    dict(id="f1", sec="fin", where="ec2", title="Ishni tugating: web-server ni o'chiring.",
-         steps=["EC2 bo'limida web-server kartasida **«O'chirish»** ni bosing", "Oynada tasdiqlang"],
-         expect="Holat «shutting-down», keyin «terminated».",
-         hint="Bulutda ishlatilmayotgan mashina uchun ham pul olinadi — keraksizini o'chiramiz.",
-         success="Tabriklaymiz! A5 laboratoriya ishi to'liq bajarildi."),
-]
-PREREQ = {t["id"]: [p["id"] for p in TASKS[:n]] for n, t in enumerate(TASKS)}  # qat'iy ketma-ket
 TOTAL = POINTS * len(TASKS)
+IDX = {t["id"]: n for n, t in enumerate(TASKS)}
+
+# Dars oqimi (A3/A4 dagidek, o'qituvchi boshqaradi): Kutish → [Namuna → Mustaqil → Yakun] × 5 missiya
+STEP_LABEL = {"kutish": "Kutish", "namuna": "Namuna", "mustaqil": "O'zingiz bajaring", "yakun": "Yakun"}
+SEQ = [(1, "kutish")] + [(m["no"], st) for m in MISSIONS for st in ("namuna", "mustaqil", "yakun")]
+BLOCKED = {"kutish": "Dars hali boshlanmagan. O'qituvchi boshlashini kuting.",
+           "namuna": "Namuna vaqti: o'qituvchini kuzating. Vazifalar birozdan keyin ochiladi.",
+           "yakun": "Missiya yakunlandi. Natijalarni birga muhokama qilamiz."}
 
 NAME_RE = re.compile(r"^[\w .-]{1,40}$")
 TABLE_RE = re.compile(r"^[A-Za-z0-9_.-]{3,40}$")
@@ -151,9 +90,13 @@ def load():
         print("state.json o'qilmadi:", e)
     DB.setdefault("students", {})
     DB.setdefault("tsess", [])
+    if tuple(DB.get("flow", {}).values())[:2] not in [(m, st) for m, st in SEQ]:
+        DB["flow"] = {"mission": 1, "step": "kutish"}
+    for st in DB["students"].values():  # eski versiyadagi topshiriqlar hisobga olinmaydi
+        st["done"] = {k: v for k, v in st["done"].items() if k in BY_ID}
     DB.pop("key", None)
     for st in DB["students"].values():  # eski talabalarga ham jamoa
-        if st.get("team") not in TEAM:
+        if st.get("team") not in TEAM and not st.get("demo"):
             st["team"] = pick_team()
     DIRTY.set()
 
@@ -187,129 +130,30 @@ def ddb_json(d):
     return json.dumps({k: {t: v} for k, (t, v) in d.items()}, ensure_ascii=False)
 
 
-def web(s):
-    xs = [i for i in s["instances"] if i["name"] == "web-server" and i["state"] != "terminated"]
-    return xs[-1] if xs else None
+def flow():
+    return DB["flow"]
+
+
+def can_act(s):
+    return s.get("demo") or flow()["step"] == "mustaqil"
+
+
+def task_open(s, t):
+    """Topshiriq ochiqmi: o'qituvchi shu missiyaning Mustaqil qadamini ochgan bo'lsa (namuna konsolida — doim)."""
+    f = flow()
+    return s.get("demo") or t["mission"] < f["mission"] or (t["mission"] == f["mission"] and f["step"] in ("mustaqil", "yakun"))
 
 
 def ready(s, tid):
-    return all(p in s["done"] for p in PREREQ[tid])
+    """Qat'iy ketma-ket: oldingi hamma topshiriqlar bajarilgan va bu topshiriq ochiq."""
+    n = IDX[tid]
+    return all(p["id"] in s["done"] for p in TASKS[:n]) and task_open(s, TASKS[n])
 
 
-def table_ok(s, name, pk, sk=None):
-    t = s["tables"].get(name)
-    if t and t["status"] == "ACTIVE" and t["pk"] == pk and t["pkt"] == "S" and t["sk"] == sk \
-            and (sk is None or t["skt"] == "S"):
-        return t
-    return None
-
-
-def d4_ok(s):
-    t = table_ok(s, "Baholar", "talaba_id", "fan")
-    return bool(t) and any(c >= 2 for c in Counter(i["talaba_id"][1] for i in t["items"]).values())
-
-
-CHECKS = {
-    "e1": lambda s, w: bool(w) and w["ami"] == UBUNTU and w["type"] == "t2.micro" and w["state"] == "running",
-    "e2": lambda s, w: bool(w) and w["state"] == "stopped",
-    "e3": lambda s, w: bool(w) and w["type"] == "t2.small",
-    "e4": lambda s, w: bool(w) and w["type"] == "t2.small" and w["state"] == "running",
-    "e5": lambda s, w: "reboot_web" in s["flags"],
-    "d1": lambda s, w: bool(table_ok(s, "Talabalar", "talaba_id")),
-    "d2": lambda s, w: bool(table_ok(s, "Talabalar", "talaba_id"))
-    and len(s["tables"]["Talabalar"]["items"]) >= 3,
-    "d3": lambda s, w: "get_talabalar" in s["flags"],
-    "d4": lambda s, w: d4_ok(s),
-    "f1": lambda s, w: "term_web" in s["flags"],
-}
-
-
-# ---------------------------------------------------------------- "nega o'tmayapti?" — jonli tekshiruv ro'yxati
-TYPE_S = {"S": "String", "N": "Number"}
-
-
-def _item(ok, label, want=None, got=None):
-    return {"ok": bool(ok), "label": label, "want": want, "got": got}
-
-
-def _guess_instance(s):
-    """Talaba qaysi mashinani nazarda tutgan: web-server, bo'lmasa oxirgi yaratilgani."""
-    alive = [i for i in s["instances"] if i["state"] != "terminated"]
-    return web(s) or (alive[-1] if alive else None)
-
-
-def _guess_table(s, name, skip=()):
-    t = s["tables"].get(name)
-    if t:
-        return t
-    for t in s["tables"].values():
-        if t["name"].lower() == name.lower():
-            return t
-    rest = [t for t in s["tables"].values() if t["name"] not in skip]
-    return rest[-1] if rest else None
-
-
-def _table_items(t, name, pk, sk):
-    if not t:
-        return [_item(False, f"«{name}» jadvali yaratilgan", name, "jadval yo'q")]
-    out = [_item(t["name"] == name, "Jadval nomi", name, t["name"]),
-           _item(t["pk"] == pk, "Partition key", pk, t["pk"]),
-           _item(t["pkt"] == "S", "Partition key turi", "String", TYPE_S[t["pkt"]])]
-    if sk:
-        out.append(_item(t["sk"] == sk and t["skt"] == "S", "Sort key", f"{sk} (String)",
-                         f"{t['sk']} ({TYPE_S[t['skt']]})" if t["sk"] else "bo'sh"))
-    else:
-        out.append(_item(not t["sk"], "Sort key bo'sh", "bo'sh", t["sk"]))
-    out.append(_item(t["status"] == "ACTIVE", "Holati ACTIVE", "ACTIVE", t["status"]))
-    return out
-
-
-def checklist(s, tid):
-    """Joriy vazifaning shartlari: har biri ✓/✗, xato bo'lsa — talabada nima bor va nima kerak."""
-    w = web(s)
-    if tid == "e1":
-        c = _guess_instance(s)
-        if not c:
-            return [_item(False, "Mashina yaratilgan", "web-server", "hali yo'q")]
-        return [_item(c["name"] == "web-server", "Nomi", "web-server", c["name"]),
-                _item(c["ami"] == UBUNTU, "Tizim (AMI)", AMIS[UBUNTU], AMIS[c["ami"]]),
-                _item(c["type"] == "t2.micro", "Turi", "t2.micro", c["type"]),
-                _item(c["state"] == "running", "Holati running", "running", c["state"])]
-    if tid in ("e2", "e3", "e4", "e5", "f1") and not w:
-        return [_item(False, "web-server mashinasi bor", "web-server", "topilmadi — EC2 bo'limiga qarang")]
-    if tid == "e2":
-        return [_item(w["state"] == "stopped", "Holati stopped", "stopped", w["state"])]
-    if tid == "e3":
-        return [_item(w["state"] == "stopped" or w["type"] == "t2.small", "Avval to'xtatilgan", "stopped", w["state"]),
-                _item(w["type"] == "t2.small", "Turi", "t2.small", w["type"])]
-    if tid == "e4":
-        return [_item(w["type"] == "t2.small", "Turi", "t2.small", w["type"]),
-                _item(w["state"] == "running", "Holati running", "running", w["state"])]
-    if tid == "e5":
-        return [_item(w["state"] == "running" or "reboot_web" in s["flags"], "Holati running", "running", w["state"]),
-                _item("reboot_web" in s["flags"], "«Qayta yuklash» bosildi", "ha", "hali bosilmagan")]
-    if tid == "d1":
-        return _table_items(_guess_table(s, "Talabalar", skip=("Baholar",)), "Talabalar", "talaba_id", None)
-    if tid == "d2":
-        t = table_ok(s, "Talabalar", "talaba_id")
-        n = len(t["items"]) if t else 0
-        return [_item(t, "«Talabalar» jadvali tayyor", "ACTIVE", None if t else "yo'q"),
-                _item(n >= 3, "Elementlar soni", "3 ta", f"{n} ta")]
-    if tid == "d3":
-        return [_item("get_talabalar" in s["flags"], "GetItem bilan element topildi", "T001", "hali topilmagan")]
-    if tid == "d4":
-        t = _guess_table(s, "Baholar", skip=("Talabalar",))
-        out = _table_items(t, "Baholar", "talaba_id", "fan")
-        best = max(Counter(i[t["pk"]][1] for i in t["items"] if t["pk"] in i).values(), default=0) if t else 0
-        return out + [_item(best >= 2, "Bitta talaba_id da 2 ta fan", "2 ta qator", f"{best} ta")]
-    if tid == "f1":
-        return [_item("term_web" in s["flags"], "web-server o'chirildi (terminate)", "terminated", w["state"])]
-    return []
-
-
-def flag(s, name, tid):
-    """Bayroq faqat topshiriq navbati kelganda qo'yiladi (oldindan bajarib qo'yib bo'lmaydi)."""
-    if ready(s, tid) and name not in s["flags"]:
+def event(s, name):
+    """Voqea (reboot, terminate, GetItem…) faqat unga mos topshiriq navbatda turganda hisobga olinadi."""
+    tid = EVENT_TASK.get(name)
+    if tid and tid not in s["done"] and ready(s, tid) and name not in s["flags"]:
         s["flags"].append(name)
 
 
@@ -330,29 +174,35 @@ def tick(s):
             else:
                 t["status"], t["until"] = "ACTIVE", None
             DIRTY.set()
-    w = web(s)
     for t in TASKS:
-        if t["id"] not in s["done"] and ready(s, t["id"]) and CHECKS[t["id"]](s, w):
+        if t["kind"] == "do" and t["id"] not in s["done"] and ready(s, t["id"]) and L.check(s, t["id"]):
             s["done"][t["id"]] = now
             DIRTY.set()
 
 
 def _standing(s):
     order, teams = ranking()
+    if s.get("demo"):
+        return {"team": None, "place": 0, "class_n": len(order),
+                "teams": [{k: t[k] for k in ("id", "name", "color", "icon", "avg", "members", "place")} for t in teams]}
     return {"team": s["team"], "place": next(n for n, x in enumerate(order) if x is s) + 1, "class_n": len(order),
             "teams": [{k: t[k] for k in ("id", "name", "color", "icon", "avg", "members", "place")} for t in teams]}
 
 
 def view(s):
     tick(s)
-    tasks = [dict(t, state="done" if t["id"] in s["done"] else "current" if ready(s, t["id"]) else "locked")
-             for t in TASKS]
-    for t in tasks:
-        if t["state"] == "current":
-            t["check"] = checklist(s, t["id"])
+    tasks = []
+    for t in TASKS:
+        st = "done" if t["id"] in s["done"] else "current" if ready(s, t["id"]) else "locked"
+        x = dict(L.public(t), state=st)
+        if st == "current" and t["kind"] == "do":
+            x["check"] = L.checklist(s, t["id"])
+        tasks.append(x)
+    f = flow()
     return {
-        "name": s["name"], "group": s["group"],
-        "score": POINTS * len(s["done"]), "total": TOTAL, "tasks": tasks, "sections": SECTIONS,
+        "name": s["name"], "group": s["group"], "demo": bool(s.get("demo")),
+        "score": POINTS * len(s["done"]), "total": TOTAL, "tasks": tasks, "missions": MISSIONS,
+        "flow": {**f, "label": STEP_LABEL[f["step"]], "blocked": None if can_act(s) else BLOCKED[f["step"]]},
         **_standing(s),
         "instances": [{k: i[k] for k in ("id", "name", "ami", "type", "state", "public_ip", "private_ip")}
                       | {"ami_name": AMIS[i["ami"]]} for i in s["instances"]],
@@ -416,11 +266,8 @@ def ec2_action(act):
         i["state"], i["until"], i["next"] = mid, time.time() + DELAY, final
         if act in ("stop", "terminate"):
             i["public_ip"] = None
-        if i["name"] == "web-server":
-            if act == "reboot" and i["type"] == "t2.small":
-                flag(s, "reboot_web", "e5")
-            if act == "terminate":
-                flag(s, "term_web", "f1")
+        if act in ("reboot", "terminate"):
+            event(s, ("reboot:" if act == "reboot" else "term:") + i["name"])
         return f"«{i['name']}» {msg}", f"aws ec2 {cmd} --instance-ids {i['id']}"
     return run
 
@@ -535,8 +382,8 @@ def ddb_get(s, a):
     t = get_table(s, a.get("table"))
     key = key_of(t, a.get("key"))
     found = next((x for x in t["items"] if same_key(x, key)), None)
-    if found and t["name"] == "Talabalar":
-        flag(s, "get_talabalar", "d3")
+    if found:
+        event(s, "get:" + t["name"])
     cli = f"aws dynamodb get-item --table-name {t['name']} \\\n  --key {quote(ddb_json(key))}"
     return ("Element topildi" if found else "Bunday kalitli element yo'q"), cli, {"item": found}
 
@@ -547,6 +394,7 @@ def ddb_delete_item(s, a):
     if not any(same_key(x, key) for x in t["items"]):
         raise Fail("Element topilmadi")
     t["items"] = [x for x in t["items"] if not same_key(x, key)]
+    event(s, f"del:{t['name']}:{key[t['pk']][1]}")
     return "Element o'chirildi", f"aws dynamodb delete-item --table-name {t['name']} \\\n  --key {quote(ddb_json(key))}"
 
 
@@ -563,10 +411,27 @@ OPS = {
 }
 
 
+def task_answer(s, a):
+    t = BY_ID.get(str(a.get("id")))
+    if not t or t["kind"] == "do":
+        raise Fail("Noma'lum topshiriq")
+    if t["id"] in s["done"]:
+        raise Fail("Bu topshiriq allaqachon bajarilgan")
+    if not ready(s, t["id"]):
+        raise Fail("Avval oldingi topshiriqlarni bajaring")
+    ok, why = L.answer(s, t["id"], a.get("value"))
+    if not ok:
+        raise Fail(why)
+    s["done"][t["id"]] = time.time()
+    return "To'g'ri! +10 ball", f"# {t['title']} — javob qabul qilindi"
+
+
 def do_op(s, a):
-    fn = OPS.get(a.get("op"))
+    fn = OPS.get(a.get("op")) or (task_answer if a.get("op") == "task.answer" else None)
     if not fn:
         raise Fail("Noma'lum amal")
+    if not can_act(s):
+        raise Fail(BLOCKED[flow()["step"]])
     tick(s)
     res = fn(s, a)
     msg, cli, extra = res if len(res) == 3 else (*res, {})
@@ -578,7 +443,7 @@ def do_op(s, a):
 
 # ---------------------------------------------------------------- jamoalar va reyting
 def pick_team():
-    n = Counter(st.get("team") for st in DB["students"].values())
+    n = Counter(st.get("team") for st in DB["students"].values() if not st.get("demo"))
     return min(TEAMS, key=lambda t: (n[t["id"]], TEAMS.index(t)))["id"]
 
 
@@ -591,7 +456,7 @@ def ranking():
     Jamoa reytingi: a'zolar ballining o'rtachasi (jamoalar soni teng bo'lmasa ham adolatli)."""
     for st in DB["students"].values():
         tick(st)
-    order = sorted(DB["students"].values(), key=lambda st: (-len(st["done"]), finish_time(st), st["name"].lower()))
+    order = sorted((st for st in DB["students"].values() if not st.get("demo")), key=lambda st: (-len(st["done"]), finish_time(st), st["name"].lower()))
     teams = []
     for t in TEAMS:
         mem = [st for st in order if st["team"] == t["id"]]
@@ -609,6 +474,7 @@ def teacher_rows(order=None):
     now = time.time()
     return [{"place": n + 1, "name": s["name"], "group": s["group"], "team": s["team"],
              "score": POINTS * len(s["done"]), "done": list(s["done"]), "ago": int(now - s["last"]),
+             "missions": [sum(t["id"] in s["done"] for t in TASKS if t["mission"] == m["no"]) for m in MISSIONS],
              "running": sum(i["state"] == "running" for i in s["instances"]), "tables": len(s["tables"])}
             for n, s in enumerate(order)]
 
@@ -681,8 +547,16 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200, teacher_csv(), "text/csv; charset=utf-8",
                                      {"Content-Disposition": 'attachment; filename="a5-natijalar.csv"'})
                 order, teams = ranking()
-                return self.send(200, {"ok": True, "students": teacher_rows(order), "teams": teams,
-                                       "tasks": [{"id": t["id"], "title": t["title"]} for t in TASKS]})
+                f = flow()
+                cur = [t["id"] for t in TASKS if t["mission"] == f["mission"]]
+                behind = [st["name"] for st in order if not all(x in st["done"] for x in cur)]
+                return self.send(200, {
+                    "ok": True, "students": teacher_rows(order), "teams": teams, "total": TOTAL,
+                    "flow": {**f, "label": STEP_LABEL[f["step"]], "index": SEQ.index((f["mission"], f["step"])),
+                             "last": len(SEQ) - 1, "done": len(order) - len(behind), "behind": behind[:12],
+                             "n": len(order)},
+                    "missions": [dict(m, tasks=sum(t["mission"] == m["no"] for t in TASKS)) for m in MISSIONS],
+                    "tasks": [{"id": t["id"], "title": t["title"], "mission": t["mission"]} for t in TASKS]})
         self.send(404, "Topilmadi", "text/plain; charset=utf-8")
 
     def do_POST(self):
@@ -737,9 +611,36 @@ class Handler(BaseHTTPRequestHandler):
                     DB["tsess"].remove(c["a5t"].value)
                     DIRTY.set()
                 return self.send(200, {"ok": True}, headers={"Set-Cookie": "a5t=; Path=/; Max-Age=0"})
+            if u.path in ("/api/teacher/flow", "/api/teacher/demo") and not self.teacher_ok():
+                return self.send(401, {"ok": False, "msg": "Avval o'qituvchi sifatida kiring"})
+            if u.path == "/api/teacher/flow":
+                i = SEQ.index((flow()["mission"], flow()["step"]))
+                act = a.get("action")
+                if act == "next":
+                    i = min(i + 1, len(SEQ) - 1)
+                elif act == "prev":
+                    i = max(i - 1, 0)
+                elif act == "goto":
+                    key = (int(a.get("mission", 0) or 0), str(a.get("step", "")))
+                    if key not in SEQ:
+                        return self.send(200, {"ok": False, "msg": "Bunday qadam yo'q"})
+                    i = SEQ.index(key)
+                DB["flow"] = {"mission": SEQ[i][0], "step": SEQ[i][1]}
+                DIRTY.set()
+                return self.send(200, {"ok": True, "flow": DB["flow"]})
+            if u.path == "/api/teacher/demo":  # o'qituvchining namuna konsoli: reytingga kirmaydi, doim ochiq
+                tok = next((k for k, v in DB["students"].items() if v.get("demo")), None)
+                if not tok:
+                    tok = secrets.token_urlsafe(16)
+                    DB["students"][tok] = {"name": "O'qituvchi (namuna)", "group": "", "team": None, "demo": True,
+                                           "joined": time.time(), "last": time.time(), "instances": [],
+                                           "tables": {}, "done": {}, "flags": [], "log": []}
+                    DIRTY.set()
+                return self.send(200, {"ok": True, "token": tok})
             if u.path == "/api/teacher/reset":
                 if not self.teacher_ok():
                     return self.send(401, {"ok": False})
+                DB["flow"] = {"mission": 1, "step": "kutish"}
                 DB["students"] = {}
                 DIRTY.set()
                 return self.send(200, {"ok": True})

@@ -2,7 +2,8 @@
 let META = {amis: {}, types: {}};
 let TOKEN = null, openName = null, cache = {}, toastT;
 let doneSeen = null, lastScore = null, seenIds = null, seenItems = new Set(), seenLog = null, lastIp = {};
-try { TOKEN = localStorage.getItem("a5_token"); } catch (e) {}
+const DEMO = new URLSearchParams(location.search).has("demo"), TKEY = DEMO ? "a5_demo" : "a5_token";
+try { TOKEN = localStorage.getItem(TKEY); } catch (e) {}
 
 const BUSY = ["pending", "stopping", "rebooting", "shutting-down", "CREATING", "DELETING"];
 const rich = (t) => t.split("**").map((p, i) => i % 2 ? h("b", null, p) : p);
@@ -35,7 +36,7 @@ async function act(op, args, btn) {
   return j;
 }
 function logout() {
-  TOKEN = null; try { localStorage.removeItem("a5_token"); } catch (e) {}
+  TOKEN = null; try { localStorage.removeItem(TKEY); } catch (e) {}
   $("app").hidden = true; $("login").hidden = false;
 }
 async function refresh() {
@@ -72,12 +73,14 @@ function render(st) {
 
   $("hbar").style.width = (100 * n / st.tasks.length) + "%";
   $("doneS").textContent = n + " / " + st.tasks.length;
-  if (changed("tasks", [st.tasks.map(t => [t.state, t.check]), hintOn, lastErr])) renderTask(st, fresh);
+  if (changed("tasks", [st.tasks.map(t => [t.state, t.check]), hintOn, lastErr, st.flow, st.demo])) renderTask(st, fresh);
+  $("lockov").hidden = !st.flow.blocked;
+  $("lockmsg").textContent = st.flow.blocked || "";
   if (changed("inst", st.instances)) renderInstances(st.instances);
   if (changed("tables", [openName, st.tables.map(t => [t.name, t.status, t.pk, t.sk, t.items.length])])) renderTables(st.tables);
   renderOpen(st);
   if (changed("log", st.log)) renderLog(st.log);
-  CUR = st.tasks.find(t => t.state === "current") || null;
+  CUR = st.flow.blocked ? null : st.tasks.find(t => t.state === "current") || null;
   guide();
 }
 
@@ -91,6 +94,7 @@ const GUIDE = {
 function guide() {
   document.querySelectorAll(".guide").forEach(e => e.classList.remove("guide"));
   if (!CUR) return;
+  if (!CUR.where) return;
   const nav = document.querySelector('.nav[data-tab="' + CUR.where + '"]');
   if (nav && !nav.classList.contains("on")) return nav.classList.add("guide");
   const table = CUR.id === "d4" ? "Baholar" : "Talabalar";
@@ -101,41 +105,101 @@ function guide() {
 }
 function bump(el) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
 
+const LETTER = ["A", "B", "C", "D"];
+let ANS = {}, WRONG = {};
+const PILL = {kutish: ["clock", "Kuting", "wait"], namuna: ["eye", "O'qituvchini kuzating", "watch"],
+              mustaqil: ["pencil", "O'zingiz bajaring", ""], yakun: ["flag", "Missiya yakuni", "done"]};
+
 function renderTask(st, fresh) {
-  const box = $("task"), cur = st.tasks.find(t => t.state === "current");
-  const lastDone = st.tasks.filter(t => t.state === "done").pop();
+  const box = $("task"), f = st.flow, M = st.missions.find(m => m.no === f.mission);
+  const cur = st.tasks.find(t => t.state === "current"), allDone = st.tasks.every(t => t.state === "done");
   if (cur && cur.id !== hintFor) { hintFor = cur.id; hintOn = false; }
+  const p = allDone ? ["check", "Hammasi bajarildi", "done"] : st.demo ? ["screen", "Namuna konsoli (o'qituvchi)", "watch"] : PILL[f.step];
+  $("state").replaceChildren(icon(p[0]), p[1]); $("state").className = "pill " + p[2];
+  $("mSmall").textContent = f.mission + "-missiya / " + st.missions.length;
+  $("mTitle").textContent = M.title;
   box.replaceChildren();
-  if (!cur) {
-    $("state").replaceChildren(icon("check"), "Hammasi bajarildi"); $("state").className = "pill done";
-    box.append(h("div", {class: "finish"}, h("div", {class: "big"}, icon("trophy")), h("h2", null, "Tabriklaymiz!"),
-      h("p", {class: "muted"}, "A5 laboratoriya ishi to'liq bajarildi: " + st.score + " / " + st.total + " ball.")));
-  } else {
-    $("state").replaceChildren(icon("pencil"), "O'zingiz bajaring"); $("state").className = "pill";
-    if (lastDone) box.append(h("div", {class: "success"}, icon("check"), h("div", null, h("b", null, "Bajarildi: " + lastDone.title), lastDone.success)));
-    const n = st.tasks.indexOf(cur) + 1;
-    const tabName = cur.where;
-    box.append(...[h("span", {class: "chip"}, n + "-VAZIFA"), h("h3", {class: "goal"}, cur.title),
-      h("div", {class: "rows"},
-        h("div", {class: "row"}, h("span", null, "Qayerda"),
-          h("button", {class: "where", onclick: () => { showTab(tabName); if (window.innerWidth <= 1000) $("tab-" + tabName).scrollIntoView({behavior: "smooth", block: "start"}); }}, tabName === "ec2" ? "EC2 (Virtual mashinalar)" : "DynamoDB (Jadvallar)", icon("open"))),
-        h("div", {class: "row"}, h("span", null, "Qadamlar"), h("ol", {class: "steps"}, cur.steps.map(x => h("li", null, rich(x))))),
-        h("div", {class: "row"}, h("span", null, "Natija"), h("div", null, cur.expect))),
-      lastErr ? h("div", {class: "errbox"}, icon("x"), h("div", null, h("b", null, "Bajarilmadi"), lastErr.msg,
-        h("small", null, "Xabarni o'qing, tuzating va tugmani qayta bosing."))) : null,
-      checkBox(cur.check || []),
-      hintOn ? h("div", {class: "hint"}, h("b", null, "Maslahat: "), cur.hint)
-             : h("button", {class: "hintb", onclick: () => { hintOn = true; renderTask(st, []); }}, icon("bulb"), "Maslahat olish", h("small", null, "bepul"))].filter(Boolean));
+  if (allDone) box.append(h("div", {class: "finish"}, h("div", {class: "big"}, icon("trophy")), h("h2", null, "Tabriklaymiz!"),
+    h("p", {class: "muted"}, "A5 laboratoriya ishi to'liq bajarildi: " + st.score + " / " + st.total + " ball.")));
+  else if (!st.demo && f.step === "kutish") box.append(waitCard());
+  else if (!st.demo && f.step === "namuna") box.append(namunaCard(M));
+  else if (!st.demo && f.step === "yakun") box.append(yakunCard(M, st));
+  else if (!cur) box.append(h("div", {class: "finish"}, h("div", {class: "big"}, icon("check")), h("h2", null, "Barakalla!"),
+    h("p", {class: "muted"}, f.mission + "-missiya vazifalari bajarildi. Keyingi missiyani o'qituvchi ochadi — kuting.")));
+  else box.append(...taskCard(st, cur));
+  box.append(allList(st, cur, fresh));
+}
+
+function waitCard() {
+  return h("div", {class: "finish"}, h("div", {class: "big wait"}, icon("clock")), h("h2", null, "Dars hali boshlanmagan"),
+    h("p", {class: "muted"}, "O'qituvchi darsni boshlashini kuting. Bu orada o'ngdagi konsol bilan tanishing: EC2 — virtual mashinalar, DynamoDB — jadvallar."));
+}
+
+function namunaCard(M) {
+  return h("div", null, h("span", {class: "chip"}, M.no + "-MISSIYA · NAMUNA"), h("h3", {class: "goal"}, M.title),
+    h("p", {class: "muted"}, M.goal),
+    h("div", {class: "watch"}, icon("eye"), h("div", null, h("b", null, "O'qituvchini kuzating"),
+      "U hozir shu amallarni ekranda ko'rsatadi. Vazifalar keyin ochiladi.")),
+    h("div", {class: "nlist"}, M.namuna.map((x, i) => h("div", {class: "nitem"}, h("span", {class: "rnum"}, i + 1),
+      h("div", null, h("code", null, x.do), h("p", null, x.mean))))));
+}
+
+function yakunCard(M, st) {
+  const ts = st.tasks.filter(t => t.mission === M.no), d = ts.filter(t => t.state === "done").length;
+  return h("div", null, h("span", {class: "chip"}, M.no + "-MISSIYA · YAKUN"), h("h3", {class: "goal"}, M.title),
+    h("div", {class: d === ts.length ? "success" : "watch"}, icon(d === ts.length ? "check" : "info"),
+      h("div", null, h("b", null, d + " / " + ts.length + " vazifa bajarildi"),
+        d === ts.length ? "Ajoyib! Hammasi to'g'ri." : "Qolgan vazifalar keyingi missiya bilan birga ochiq qoladi.")),
+    h("h4", {style: "margin-top:16px"}, icon("star"), "Siz nimani o'rgandingiz"),
+    h("div", {class: "nlist"}, M.learned.map(x => h("div", {class: "ck ok"}, h("i", null, icon("check")), h("span", null, x)))));
+}
+
+function taskCard(st, cur) {
+  const mt = st.tasks.filter(t => t.mission === cur.mission), k = mt.indexOf(cur) + 1;
+  const tabName = cur.where;
+  const rows = h("div", {class: "rows"});
+  if (tabName) rows.append(h("div", {class: "row"}, h("span", null, "Qayerda"),
+    h("button", {class: "where", onclick: () => { showTab(tabName); if (window.innerWidth <= 1000) $("tab-" + tabName).scrollIntoView({behavior: "smooth", block: "start"}); }},
+      tabName === "ec2" ? "EC2 (Virtual mashinalar)" : "DynamoDB (Jadvallar)", icon("open"))));
+  if (cur.steps) rows.append(h("div", {class: "row"}, h("span", null, "Qadamlar"), h("ol", {class: "steps"}, cur.steps.map(x => h("li", null, rich(x))))));
+  if (cur.expect) rows.append(h("div", {class: "row"}, h("span", null, "Natija"), h("div", null, cur.expect)));
+  const out = [h("span", {class: "chip"}, cur.mission + "-MISSIYA · " + k + "/" + mt.length + "-VAZIFA" + (cur.kind === "quiz" ? " · SAVOL" : "")),
+    h("h3", {class: "goal"}, cur.title), cur.kind === "quiz" ? null : rows];
+  if (cur.kind === "answer") {
+    const inp = h("input", {class: "ansin", placeholder: cur.placeholder || "", autocomplete: "off", spellcheck: "false", "data-k": "ans"});
+    inp.value = ANS[cur.id] || "";
+    inp.oninput = () => { ANS[cur.id] = inp.value; };
+    const send = (e) => act("task.answer", {id: cur.id, value: inp.value}, e && e.currentTarget);
+    inp.onkeydown = (e) => { if (e.key === "Enter") send(); };
+    out.push(h("div", {class: "ansbox"}, h("label", null, "Javobingiz", inp),
+      h("button", {class: "btn primary", "data-g": "answer", onclick: send}, icon("check"), "Tekshirish")));
   }
-  const all = h("div", {class: "all"});
-  for (const sec of Object.keys(st.sections)) {
-    const ts = st.tasks.filter(t => t.sec === sec), d = ts.filter(t => t.state === "done").length;
-    all.append(h("div", {class: "secrow"}, icon(SECI[sec]), h("b", null, st.sections[sec]), h("span", null, d + " / " + ts.length),
-      h("div", {class: "bar" + (d === ts.length ? " full" : "")}, h("i", {style: "width:" + (100 * d / ts.length) + "%"}))));
-    ts.forEach(t => all.append(h("div", {class: "ti " + t.state + (fresh.includes(t.id) ? " pop" : "")},
-      h("i", null, t.state === "done" ? icon("check") : t.state === "locked" ? icon("lock") : st.tasks.indexOf(t) + 1), t.title)));
+  if (cur.kind === "quiz") {
+    const wrong = WRONG[cur.id] || [];
+    out.push(h("div", {class: "quiz"}, cur.options.map((o, i) => h("button", {class: "opt" + (wrong.includes(i) ? " wrong" : ""), ...(wrong.includes(i) ? {disabled: ""} : {}),
+      onclick: async (e) => { const j = await act("task.answer", {id: cur.id, value: i}, e.currentTarget);
+        if (!j.ok) { (WRONG[cur.id] = WRONG[cur.id] || []).push(i); renderTask(j.state || st, []); } }},
+      h("b", null, LETTER[i]), h("span", null, o)))));
   }
-  box.append(all);
+  out.push(lastErr ? h("div", {class: "errbox"}, icon("x"), h("div", null, h("b", null, "Bajarilmadi"), lastErr.msg,
+    h("small", null, cur.kind === "do" ? "Xabarni o'qing, tuzating va tugmani qayta bosing." : "Tuzatib, qayta urinib ko'ring."))) : null);
+  if (cur.kind === "do") out.push(checkBox(cur.check || []));
+  out.push(hintOn ? h("div", {class: "hint"}, h("b", null, "Maslahat: "), cur.hint)
+    : h("button", {class: "hintb", onclick: () => { hintOn = true; renderTask(st, []); }}, icon("bulb"), "Maslahat olish", h("small", null, "bepul")));
+  return out.filter(Boolean);
+}
+
+function allList(st, cur, fresh) {
+  const all = h("div", {class: "all"}), open = cur ? cur.mission : st.flow.mission;
+  for (const m of st.missions) {
+    const ts = st.tasks.filter(t => t.mission === m.no), d = ts.filter(t => t.state === "done").length;
+    const locked = !st.demo && m.no > st.flow.mission;
+    all.append(h("div", {class: "secrow" + (locked ? " locked" : "")}, icon(locked ? "lock" : m.icon), h("b", null, m.no + ". " + m.title),
+      h("span", null, d + " / " + ts.length), h("div", {class: "bar" + (d === ts.length ? " full" : "")}, h("i", {style: "width:" + (100 * d / ts.length) + "%"}))));
+    if (m.no === open) ts.forEach(t => all.append(h("div", {class: "ti " + t.state + (fresh.includes(t.id) ? " pop" : "")},
+      h("i", null, t.state === "done" ? icon("check") : t.state === "locked" ? icon("lock") : ts.indexOf(t) + 1), t.title)));
+  }
+  return all;
 }
 
 // Jamoalar reytingi (chap kartaning pastida)
@@ -326,9 +390,15 @@ async function init() {
     e.preventDefault();
     const j = await api("/api/join", {name: $("lname").value, group: $("lgroup").value});
     if (!j.ok) return $("lerr").textContent = j.msg;
-    TOKEN = j.token; try { localStorage.setItem("a5_token", TOKEN); } catch (err) {}
+    TOKEN = j.token; try { localStorage.setItem(TKEY, TOKEN); } catch (err) {}
     refresh();
   };
+  if (DEMO && !TOKEN) {  // o'qituvchining namuna konsoli
+    const r = await fetch("/api/teacher/demo", {method: "POST"});
+    const j = await r.json().catch(() => ({}));
+    if (j.token) { TOKEN = j.token; try { localStorage.setItem(TKEY, TOKEN); } catch (e) {} }
+    else { document.body.textContent = "Namuna konsoli uchun avval /teacher sahifasida o'qituvchi sifatida kiring."; return; }
+  }
   if (TOKEN) refresh(); else $("login").hidden = false;
   setInterval(refresh, 2000);
 }

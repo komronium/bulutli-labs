@@ -20,10 +20,11 @@
 <div id="app" hidden>
   <header class="ehead">
     <div class="logo"><i data-i="cloud"></i></div>
-    <div><h1>A5 · Reyting</h1><p>EC2 virtual mashina va DynamoDB jadvallari</p></div>
+    <div><h1 id="etitle">A5 · Reyting</h1><p id="esub">EC2 virtual mashina va DynamoDB jadvallari</p></div>
     <div class="ejoin"><small>Kirish manzili</small><b id="url"></b></div>
   </header>
-  <main class="egrid">
+  <main class="enamuna" id="enamuna" hidden></main>
+  <main class="egrid" id="egrid">
     <section class="card epanel">
       <h2><i data-i="trophy"></i> Jamoalar poygasi</h2>
       <div id="race"></div>
@@ -34,7 +35,7 @@
     </section>
   </main>
   <footer class="erules">
-    <div><span class="rnum">1</span>Har bir vazifa <b>10 ball</b> · jami <b>100</b></div>
+    <div><span class="rnum">1</span>Har bir vazifa <b>10 ball</b> · jami <b>270</b></div>
     <div><span class="rnum">2</span>Jamoa balli = a'zolarning <b>o'rtacha</b> balli</div>
     <div><span class="rnum">3</span>Ball teng bo'lsa — <b>ertaroq tugatgan</b> yuqorida</div>
   </footer>
@@ -49,11 +50,18 @@ async function load() {
   try { r = await fetch("/api/teacher", {cache: "no-store"}); j = await r.json(); } catch (e) { return; }
   if (r.status === 401) { $("app").hidden = true; $("need").hidden = false; return; }
   $("need").hidden = true; $("app").hidden = false;
-  const T = Object.fromEntries(j.teams.map(t => [t.id, t]));
+  const T = Object.fromEntries(j.teams.map(t => [t.id, t])), f = j.flow, M = j.missions[f.mission - 1];
+  const STEPN = {kutish: "Dars boshlanishini kutyapmiz", namuna: "Namuna — o'qituvchini kuzating", mustaqil: "O'zingiz bajaring", yakun: "Missiya yakuni"};
+  $("etitle").textContent = f.step === "kutish" ? "A5 · Dars boshlanmoqda" : f.mission + "-missiya · " + M.title;
+  $("esub").textContent = STEPN[f.step] + (f.step === "mustaqil" ? " · " + f.done + " / " + f.n + " talaba bajardi" : "");
+  const showN = f.step === "namuna";
+  $("enamuna").hidden = !showN; $("egrid").hidden = showN;
+  if (showN) $("enamuna").replaceChildren(h("p", {class: "egoal"}, M.goal),
+    ...M.namuna.map((x, i) => h("div", {class: "card nitem big"}, h("span", {class: "rnum"}, i + 1), h("div", null, h("code", null, x.do), h("p", null, x.mean)))));
   $("race").replaceChildren(...j.teams.map(t => h("div", {class: "erow", style: "--tc:" + t.color},
     placeBadge(t.place), teamIcon(t, 52),
     h("div", {class: "egrow"}, h("div", {class: "en"}, h("b", null, t.name), h("small", null, t.members + " ta a'zo · " + t.full + " ta hammasini bajardi")),
-      h("div", {class: "tbar big"}, h("i", {style: "width:" + t.avg + "%"}))),
+      h("div", {class: "tbar big"}, h("i", {style: "width:" + (100 * t.avg / j.total) + "%"}))),
     h("div", {class: "escore"}, t.avg))));
   const top = j.students.slice(0, 5);
   $("top").replaceChildren(...(top.length ? top.map(s => h("div", {class: "erow small", style: "--tc:" + T[s.team].color},

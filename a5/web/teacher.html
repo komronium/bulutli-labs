@@ -38,12 +38,24 @@
   </header>
 
   <main class="tpage">
+    <div class="card flowc">
+      <div class="flh">
+        <div class="fnow"><small>Hozirgi qadam</small><b id="flabel">—</b></div>
+        <div class="acts">
+          <button class="btn" id="prev"><i data-i="back"></i> Orqaga</button>
+          <button class="btn primary big" id="next"><i data-i="play"></i> <span id="nextl">Keyingi qadam</span></button>
+          <a class="btn" href="/?demo=1" target="_blank"><i data-i="screen"></i> Namuna konsoli</a>
+        </div>
+      </div>
+      <div class="fsteps" id="fsteps"></div>
+      <div class="fready" id="fready"></div>
+    </div>
     <div class="tgrid" id="teamcards"></div>
 
     <div class="card rules">
       <h3><i data-i="info"></i> Ball va reyting qanday hisoblanadi?</h3>
       <div class="rgrid">
-        <div><span class="rnum">1</span><b>Har bir vazifa — 10 ball</b><p>10 ta vazifa: jami 100 ball. Vazifa server tomonidan o'zi tekshiriladi.</p></div>
+        <div><span class="rnum">1</span><b>Har bir vazifa — 10 ball</b><p>5 missiya, 27 ta vazifa: jami 270 ball. Vazifa server tomonidan o'zi tekshiriladi.</p></div>
         <div><span class="rnum">2</span><b>Jamoa balli — o'rtacha</b><p>A'zolar ballining o'rtachasi. Jamoada odam kam yoki ko'p bo'lsa ham adolatli.</p></div>
         <div><span class="rnum">3</span><b>Ball teng bo'lsa</b><p>Oxirgi vazifani ertaroq bajargan talaba yuqorida turadi.</p></div>
       </div>
@@ -77,22 +89,49 @@ async function load() {
 
   $("teamcards").replaceChildren(...j.teams.map(t => h("div", {class: "card tcard", style: "--tc:" + t.color},
     h("div", {class: "tch"}, teamIcon(t, 44), h("div", null, h("b", null, t.name), h("small", null, t.members + " ta a'zo")), placeBadge(t.place)),
-    h("div", {class: "tavg"}, h("b", null, t.avg), h("span", null, "/ 100 o'rtacha")),
-    h("div", {class: "tbar"}, h("i", {style: "width:" + t.avg + "%"})),
+    h("div", {class: "tavg"}, h("b", null, t.avg), h("span", null, "/ " + j.total + " o'rtacha")),
+    h("div", {class: "tbar"}, h("i", {style: "width:" + (100 * t.avg / j.total) + "%"})),
     h("small", {class: "muted"}, "Hammasini bajargan: " + t.full + " ta"))));
 
   const avg = st.length ? Math.round(st.reduce((a, s) => a + s.score, 0) / st.length) : 0;
   $("summary").textContent = st.length + " talaba · o'rtacha " + avg + " ball · " + st.filter(s => s.done.length === n).length + " ta hammasini bajardi";
+  renderFlow(j);
   $("head").replaceChildren(h("tr", null, ["O'rin", "Ism familiya", "Jamoa", "Guruh", "Ball"].map(x => h("th", null, x)),
-    j.tasks.map((t, i) => h("th", {title: t.title}, i + 1)), h("th", null, "Faollik")));
+    j.missions.map(m => h("th", {title: m.title}, m.no + "-missiya")), h("th", null, "Faollik")));
   $("rows").replaceChildren(...(st.length ? st.map(s => h("tr", null,
     h("td", null, placeBadge(s.place)), h("td", null, h("b", null, s.name)), h("td", null, teamChip(T[s.team])),
     h("td", null, s.group || "—"),
-    h("td", null, h("div", {class: "sbar"}, h("b", null, s.score), h("div", {class: "tbar", style: "--tc:" + T[s.team].color}, h("i", {style: "width:" + s.score + "%"})))),
-    j.tasks.map(t => h("td", null, s.done.includes(t.id) ? h("span", {class: "yes"}, "✓") : h("span", {class: "no"}, "●"))),
+    h("td", null, h("div", {class: "sbar"}, h("b", null, s.score), h("div", {class: "tbar", style: "--tc:" + T[s.team].color}, h("i", {style: "width:" + (100 * s.score / j.total) + "%"})))),
+    j.missions.map((m, i) => h("td", null, h("span", {class: "mcell" + (s.missions[i] === m.tasks ? " full" : s.missions[i] ? " part" : "")}, s.missions[i] + "/" + m.tasks))),
     h("td", {class: "muted small"}, ago(s.ago))))
     : [h("tr", null, h("td", {colspan: "20"}, h("div", {class: "empty"}, icon("user"), "Hali hech kim kirmagan. Talabalarga yuqoridagi manzilni bering.")))]));
 }
+const STEPN = {kutish: "Kutish", namuna: "Namuna", mustaqil: "Mustaqil", yakun: "Yakun"};
+let SEQ = [];
+function renderFlow(j) {
+  const f = j.flow, M = j.missions;
+  SEQ = [[1, "kutish"]].concat(...M.map(m => ["namuna", "mustaqil", "yakun"].map(st => [m.no, st])));
+  const lab = (x) => x[1] === "kutish" ? "Dars boshlanishidan oldin" : x[0] + "-missiya · " + STEPN[x[1]];
+  $("flabel").textContent = lab([f.mission, f.step]) + (f.step !== "kutish" ? " — " + M[f.mission - 1].title : "");
+  const nx = SEQ[f.index + 1];
+  $("nextl").textContent = f.index === 0 ? "Darsni boshlash" : nx ? "Keyingi: " + lab(nx) : "Dars tugadi";
+  $("next").disabled = !nx; $("prev").disabled = f.index === 0;
+  $("fsteps").replaceChildren(...M.map(m => h("div", {class: "fm" + (m.no === f.mission ? " on" : "")}, h("b", null, m.no + ". " + m.title),
+    h("div", null, ["namuna", "mustaqil", "yakun"].map(st => {
+      const i = SEQ.findIndex(x => x[0] === m.no && x[1] === st);
+      return h("button", {class: "fs" + (i === f.index ? " cur" : i < f.index ? " past" : ""), onclick: () => flowCtl({action: "goto", mission: m.no, step: st})}, STEPN[st]);
+    })))));
+  $("fready").replaceChildren(f.step === "mustaqil" || f.step === "yakun"
+    ? h("span", null, icon("check"), h("b", null, f.done + " / " + f.n), " talaba " + f.mission + "-missiyani bajardi" + (f.behind.length ? " · Qolganlar: " + f.behind.join(", ") + (f.n - f.done > f.behind.length ? " …" : "") : ""))
+    : f.step === "namuna" ? h("span", null, icon("eye"), "Talabalar konsoli yopiq — «Namuna konsoli»da ko'rsating, so'ng «Keyingi» bilan vazifalarni oching.")
+    : h("span", null, icon("clock"), "Talabalar kirmoqda: " + f.n + " ta. Hamma kirgach, «Darsni boshlash» ni bosing."));
+}
+async function flowCtl(body) {
+  await fetch("/api/teacher/flow", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  load();
+}
+$("next").onclick = () => flowCtl({action: "next"});
+$("prev").onclick = () => flowCtl({action: "prev"});
 $("lform").onsubmit = async (e) => {
   e.preventDefault();
   const r = await fetch("/api/teacher/login", {method: "POST", headers: {"Content-Type": "application/json"},

@@ -28,7 +28,7 @@
 <div id="app" hidden>
   <header class="top card">
     <div class="logo"><i data-i="cloud"></i></div>
-    <div class="mtitle"><small>A5 laboratoriya</small><b>EC2 va DynamoDB</b></div>
+    <div class="mtitle"><small id="mSmall">A5 laboratoriya</small><b id="mTitle">EC2 va DynamoDB</b></div>
     <span class="pill" id="state"><i data-i="pencil"></i> O'zingiz bajaring</span>
     <div class="stats">
       <div class="stat" id="scorebox"><small>Ball</small><b id="score">0</b></div>
@@ -57,6 +57,7 @@
         <div class="right">Haqiqiy AWS ishlatilmaydi, pul ketmaydi</div>
       </div>
       <div class="cons">
+        <div class="lockov" id="lockov" hidden><div><i data-i="lock"></i><b>Konsol hozir yopiq</b><span id="lockmsg"></span></div></div>
         <nav class="side">
           <button class="nav on" data-tab="ec2"><i data-i="server"></i><span><b>EC2</b><small>Virtual mashinalar</small></span></button>
           <button class="nav" data-tab="ddb"><i data-i="db"></i><span><b>DynamoDB</b><small>Jadvallar</small></span></button>
